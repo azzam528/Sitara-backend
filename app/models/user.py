@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from app.models.patient import Patient
 
 from sqlalchemy import String, Boolean, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+
 from datetime import datetime
 
 from app.core.database import Base
