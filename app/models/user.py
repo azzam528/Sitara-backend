@@ -1,3 +1,9 @@
+from typing import TYPE_CHECKING
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.patient import Patient
+
 from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
@@ -11,40 +17,20 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    username: Mapped[str] = mapped_column(
-        String(100),
-        unique=True,
-        nullable=False
-    )
+    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=False
-    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
 
-    password_hash: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    role: Mapped[str] = mapped_column(
-        String(30),
-        nullable=False
-    )
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
 
-    is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True
-    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+    patient: Mapped["Patient"] = relationship(back_populates="user", uselist=False)
