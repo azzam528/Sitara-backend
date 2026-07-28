@@ -6,10 +6,10 @@ from app.models.patient import Patient
 from app.repositories.user_repository import UserRepository
 from app.repositories.patient_repository import PatientRepository
 
-from app.schemas.patient import PatientCreate
+from app.schemas.patient import PatientCreate, PatientUpdate
 
 from app.core.security import hash_password
-
+from fastapi import HTTPException
 
 class PatientService:
 
@@ -18,6 +18,12 @@ class PatientService:
         self.user_repository = UserRepository()
 
         self.patient_repository = PatientRepository()
+    
+    def get_all(
+        self,
+        db: Session
+    ):
+        return self.patient_repository.get_all(db)
         
     def create_patient(
         self,
@@ -109,3 +115,78 @@ class PatientService:
         )
         
         return patient
+    
+    def get_by_id(
+        self,
+        db: Session,
+        patient_id: int
+    ):
+
+        patient = self.patient_repository.get_by_id(
+            db,
+            patient_id
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found"
+            )
+
+        return patient    
+    
+    def update_patient(
+        self,
+        db: Session,
+        patient_id: int,
+        patient_data: PatientUpdate
+    ):
+
+        patient = self.patient_repository.get_by_id(
+            db,
+            patient_id
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found"
+            )
+
+        update_data = patient_data.model_dump(
+            exclude_unset=True
+        )
+
+        for key, value in update_data.items():
+            setattr(
+                patient,
+                key,
+                value
+            )
+
+        return self.patient_repository.update(
+            db,
+            patient
+        )
+
+    def delete_patient(
+        self,
+        db: Session,
+        patient_id: int
+    ):
+
+        patient = self.patient_repository.get_by_id(
+            db,
+            patient_id
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found"
+            )
+
+        return self.patient_repository.delete(
+            db,
+            patient
+        )

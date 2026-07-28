@@ -22,11 +22,13 @@ class PatientRepository:
         self,
         db: Session,
         patient_id: int
-    ) -> Patient | None:
-
+    ):
         return (
             db.query(Patient)
-            .filter(Patient.id == patient_id)
+            .filter(
+                Patient.id == patient_id,
+                Patient.is_active == True
+            )
             .first()
         )
 
@@ -73,10 +75,10 @@ class PatientRepository:
     def get_all(
         self,
         db: Session
-    ) -> list[Patient]:
-
+    ):
         return (
             db.query(Patient)
+            .filter(Patient.is_active == True)
             .all()
         )
 
@@ -97,7 +99,12 @@ class PatientRepository:
         self,
         db: Session,
         patient: Patient
-    ) -> None:
+    ):
 
-        db.delete(patient)
+        patient.is_active = False
+
         db.commit()
+
+        db.refresh(patient)
+
+        return patient

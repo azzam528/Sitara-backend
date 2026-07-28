@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.models.user import User
 from app.core.database import get_db
 from app.core.security import verify_access_token
 from app.repositories.user_repository import UserRepository
@@ -50,3 +51,33 @@ def get_current_user(
         )
 
     return user
+
+
+# ============================
+# Role Based Access Control
+# ============================
+
+def require_nakes(
+    current_user: User = Depends(get_current_user),
+):
+
+    if current_user.role != "nakes":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only nakes can access this endpoint"
+        )
+
+    return current_user
+
+
+def require_patient(
+    current_user: User = Depends(get_current_user),
+):
+
+    if current_user.role != "patient":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only patient can access this endpoint"
+        )
+
+    return current_user
