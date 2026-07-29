@@ -41,7 +41,10 @@ class PatientRepository:
 
         return (
             db.query(Patient)
-            .filter(Patient.user_id == user_id)
+            .filter(
+                Patient.user_id == user_id,
+                Patient.is_active == True,
+            )
             .first()
         )
 

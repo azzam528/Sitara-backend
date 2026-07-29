@@ -190,3 +190,22 @@ class PatientService:
             db,
             patient
         )
+        
+    def get_profile(
+        self,
+        db: Session,
+        current_user: User,
+    ):
+
+        patient = self.patient_repository.get_by_user_id(
+            db,
+            current_user.id,
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient profile not found",
+            )
+
+        return patient
