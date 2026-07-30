@@ -57,10 +57,27 @@ class TreatmentRepository:
         return (
             db.query(Treatment)
             .filter(
-                Treatment.patient_id == patient_id
+                Treatment.patient_id == patient_id,
+                Treatment.is_active == True,
             )
             .all()
         )
+
+    def get_active_by_patient_id(
+            self,
+            db: Session,
+            patient_id: int,
+        ):
+    
+            return (
+                db.query(Treatment)
+                .filter(
+                    Treatment.patient_id == patient_id,
+                    Treatment.status == TreatmentStatus.ACTIVE,
+                    Treatment.is_active == True,
+                )
+                .first()
+            )
 
     def update(
         self,
@@ -87,18 +104,4 @@ class TreatmentRepository:
 
         return treatment
         
-    def get_active_by_patient_id(
-        self,
-        db: Session,
-        patient_id: int,
-    ):
-
-        return (
-            db.query(Treatment)
-            .filter(
-                Treatment.patient_id == patient_id,
-                Treatment.status == TreatmentStatus.ACTIVE,
-                Treatment.is_active == True,
-            )
-            .first()
-        )
+    
