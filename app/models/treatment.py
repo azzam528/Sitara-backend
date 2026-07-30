@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from enum import Enum
 from typing import TYPE_CHECKING
+from sqlalchemy import Boolean
 
 from sqlalchemy import (
     String,
@@ -95,6 +96,11 @@ class Treatment(Base):
         nullable=True,
     )
 
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+        
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
