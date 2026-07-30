@@ -154,11 +154,7 @@ class TreatmentService:
                 detail="Treatment not found",
             )
 
-        self.treatment_repository.delete(
+        return self.treatment_repository.delete(
             db,
             treatment,
         )
-
-        return {
-            "message": "Treatment deleted successfully"
-        }
