@@ -98,6 +98,7 @@ class TreatmentRepository:
             .filter(
                 Treatment.patient_id == patient_id,
                 Treatment.status == TreatmentStatus.ACTIVE,
+                Treatment.is_active == True,
             )
             .first()
         )
