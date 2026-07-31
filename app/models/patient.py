@@ -1,7 +1,11 @@
 from datetime import datetime, date
 from enum import Enum
 from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from app.models.treatment import Treatment
+    
 from sqlalchemy import (
     String,
     Boolean,
@@ -126,3 +130,8 @@ class Patient(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
+    
+    
+    treatments: Mapped[list["Treatment"]] = relationship(
+    back_populates="patient"
+)

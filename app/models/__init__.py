@@ -1,3 +1,4 @@
 from .user import User
 from .patient import Patient
-from app.models.medicine import Medicine
+from .treatment import Treatment
+from .medicine import Medicine
