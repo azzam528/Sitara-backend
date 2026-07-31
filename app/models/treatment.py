@@ -70,6 +70,11 @@ class Treatment(Base):
         nullable=False,
     )
 
+    medicine_schedules = relationship(
+        "MedicineSchedule",
+        back_populates="treatment",
+    )
+    
     phase: Mapped[TreatmentPhase] = mapped_column(
         SQLEnum(TreatmentPhase),
         nullable=False,
