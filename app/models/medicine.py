@@ -33,6 +33,11 @@ class Medicine(Base):
         nullable=False,
     )
 
+    category: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    
     strength: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
