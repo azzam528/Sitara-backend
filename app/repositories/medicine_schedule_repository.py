@@ -62,6 +62,23 @@ class MedicineScheduleRepository:
             .all()
         )
 
+    def get_by_treatment_and_medicine(
+        self,
+        db: Session,
+        treatment_id: int,
+        medicine_id: int,
+    ):
+
+        return (
+            db.query(MedicineSchedule)
+            .filter(
+                MedicineSchedule.treatment_id == treatment_id,
+                MedicineSchedule.medicine_id == medicine_id,
+                MedicineSchedule.is_active == True,
+            )
+            .first()
+        )
+    
     def update(
         self,
         db: Session,

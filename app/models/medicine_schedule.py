@@ -71,8 +71,6 @@ class MedicineSchedule(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-
-   
     
     treatment = relationship(
         "Treatment",

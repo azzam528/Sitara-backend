@@ -64,6 +64,18 @@ class MedicineScheduleService:
                 detail="Medicine not found",
             )
 
+        existing = self.schedule_repository.get_by_treatment_and_medicine(
+            db,
+            schedule_data.treatment_id,
+            schedule_data.medicine_id,
+        )
+
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Medicine schedule already exists",
+            )    
+            
         schedule = MedicineSchedule(
 
             treatment_id=schedule_data.treatment_id,

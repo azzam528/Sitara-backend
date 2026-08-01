@@ -18,6 +18,7 @@ from sqlalchemy.orm import (
 )
 
 from app.core.database import Base
+from app.models.medicine_schedule import MedicineSchedule
 
 if TYPE_CHECKING:
     from app.models.patient import Patient
@@ -70,8 +71,7 @@ class Treatment(Base):
         nullable=False,
     )
 
-    medicine_schedules = relationship(
-        "MedicineSchedule",
+    medicine_schedules: Mapped[list["MedicineSchedule"]] = relationship(
         back_populates="treatment",
     )
     

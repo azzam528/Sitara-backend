@@ -9,9 +9,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
+    relationship,
 )
 
 from app.core.database import Base
+from app.models.medicine_schedule import MedicineSchedule
 
 
 class Medicine(Base):
@@ -67,4 +69,8 @@ class Medicine(Base):
         DateTime,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
+    )
+    
+    medicine_schedules: Mapped[list["MedicineSchedule"]] = relationship(
+        back_populates="medicine",
     )
