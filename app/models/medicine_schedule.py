@@ -16,7 +16,12 @@ from sqlalchemy.orm import (
 )
 
 from app.core.database import Base
+from app.models.video_verification import VideoVerification
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.video_verification import VideoVerification
 
 class MedicineSchedule(Base):
 
@@ -80,4 +85,8 @@ class MedicineSchedule(Base):
     medicine = relationship(
         "Medicine",
         back_populates="medicine_schedules",
+    )
+    
+    video_verifications: Mapped[list["VideoVerification"]] = relationship(
+        back_populates="medicine_schedule",
     )
