@@ -44,12 +44,26 @@ class VideoVerification(Base):
         nullable=False,
     )
 
-    video_url: Mapped[str] = mapped_column(
+    video_path: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
     )
 
-    thumbnail_url: Mapped[str | None] = mapped_column(
+    file_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    mime_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    file_size: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
+    thumbnail_path: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -90,3 +104,5 @@ class VideoVerification(Base):
         "MedicineSchedule",
         back_populates="video_verifications",
     )
+    
+    
