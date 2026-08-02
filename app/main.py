@@ -9,6 +9,9 @@ from app.api.medicine_schedule import router as medicine_schedule_router
 from app.api.video_verification import (
     router as video_verification_router,
 )
+from app.api.complaint import router as complaint_router
+from app.schemas import complaint
+
 app = FastAPI()
 
 app.include_router(auth_router)
@@ -18,3 +21,4 @@ app.include_router(treatment_router)
 app.include_router(medicine_router)
 app.include_router(medicine_schedule_router)
 app.include_router(video_verification_router)
+app.include_router(complaint_router)
