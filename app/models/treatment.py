@@ -22,6 +22,7 @@ from app.models.medicine_schedule import MedicineSchedule
 
 if TYPE_CHECKING:
     from app.models.patient import Patient
+    from app.models.complaint import Complaint
 
 
 class TreatmentPhase(str, Enum):
@@ -115,4 +116,8 @@ class Treatment(Base):
         DateTime,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
+    )
+    
+    complaints: Mapped[list["Complaint"]] = relationship(
+        back_populates="treatment",
     )
