@@ -23,6 +23,7 @@ from app.models.medicine_schedule import MedicineSchedule
 if TYPE_CHECKING:
     from app.models.patient import Patient
     from app.models.complaint import Complaint
+    from app.models.refill_request import RefillRequest
 
 
 class TreatmentPhase(str, Enum):
@@ -119,5 +120,9 @@ class Treatment(Base):
     )
     
     complaints: Mapped[list["Complaint"]] = relationship(
+        back_populates="treatment",
+    )
+    
+    refill_requests: Mapped[list["RefillRequest"]] = relationship(
         back_populates="treatment",
     )

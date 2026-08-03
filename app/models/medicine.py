@@ -13,8 +13,12 @@ from sqlalchemy.orm import (
 )
 
 from app.core.database import Base
-from app.models.medicine_schedule import MedicineSchedule
 
+from app.models.medicine_schedule import MedicineSchedule
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.refill_request import RefillRequest
 
 class Medicine(Base):
 
@@ -72,5 +76,9 @@ class Medicine(Base):
     )
     
     medicine_schedules: Mapped[list["MedicineSchedule"]] = relationship(
+        back_populates="medicine",
+    )
+    
+    refill_requests: Mapped[list["RefillRequest"]] = relationship(
         back_populates="medicine",
     )
