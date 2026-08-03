@@ -11,6 +11,10 @@ from app.api.video_verification import (
 )
 from app.api.complaint import router as complaint_router
 from app.schemas import complaint
+from app.api.refill_requests import (
+    router as refill_router,
+)
+
 
 app = FastAPI()
 
@@ -22,3 +26,4 @@ app.include_router(medicine_router)
 app.include_router(medicine_schedule_router)
 app.include_router(video_verification_router)
 app.include_router(complaint_router)
+app.include_router(refill_router)

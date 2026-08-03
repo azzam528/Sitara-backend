@@ -1,106 +1,63 @@
-from sqlalchemy.orm import Session
+from datetime import datetime
+from enum import Enum
 
-from app.models.refill_request import (
-    RefillRequest,
-    RefillRequestStatus,
-)
+from pydantic import BaseModel, ConfigDict
 
 
-class RefillRepository:
+class RefillRequestStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
-    def create(
-        self,
-        db: Session,
-        refill: RefillRequest,
-    ):
 
-        db.add(refill)
+class RefillCreate(BaseModel):
 
-        db.commit()
+    treatment_id: int
 
-        db.refresh(refill)
+    medicine_id: int
 
-        return refill
+    quantity: int
 
-    def get_by_id(
-        self,
-        db: Session,
-        refill_id: int,
-    ):
+    reason: str
 
-        return (
-            db.query(RefillRequest)
-            .filter(
-                RefillRequest.id == refill_id,
-                RefillRequest.is_active == True,
-            )
-            .first()
-        )
+    description: str | None = None
 
-    def get_all(
-        self,
-        db: Session,
-    ):
 
-        return (
-            db.query(RefillRequest)
-            .filter(
-                RefillRequest.is_active == True,
-            )
-            .all()
-        )
+class RefillUpdate(BaseModel):
 
-    def get_by_treatment(
-        self,
-        db: Session,
-        treatment_id: int,
-    ):
+    status: RefillRequestStatus | None = None
 
-        return (
-            db.query(RefillRequest)
-            .filter(
-                RefillRequest.treatment_id == treatment_id,
-                RefillRequest.is_active == True,
-            )
-            .all()
-        )
+    nurse_note: str | None = None
 
-    def get_pending(
-        self,
-        db: Session,
-    ):
 
-        return (
-            db.query(RefillRequest)
-            .filter(
-                RefillRequest.status == RefillRequestStatus.PENDING,
-                RefillRequest.is_active == True,
-            )
-            .all()
-        )
+class RefillResponse(BaseModel):
 
-    def update(
-        self,
-        db: Session,
-        refill: RefillRequest,
-    ):
+    id: int
 
-        db.commit()
+    treatment_id: int
 
-        db.refresh(refill)
+    medicine_id: int
 
-        return refill
+    quantity: int
 
-    def delete(
-        self,
-        db: Session,
-        refill: RefillRequest,
-    ):
+    reason: str
 
-        refill.is_active = False
+    description: str | None
 
-        db.commit()
+    status: RefillRequestStatus
 
-        db.refresh(refill)
+    nurse_note: str | None
 
-        return refill
+    approved_by: int | None
+
+    approved_at: datetime | None
+
+    is_active: bool
+
+    created_at: datetime
+
+    updated_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
