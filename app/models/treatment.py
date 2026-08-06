@@ -2,6 +2,7 @@ from datetime import datetime, date
 from enum import Enum
 from typing import TYPE_CHECKING
 from sqlalchemy import Boolean
+from app.models.control_schedule import ControlSchedule
 
 from sqlalchemy import (
     String,
@@ -124,5 +125,9 @@ class Treatment(Base):
     )
     
     refill_requests: Mapped[list["RefillRequest"]] = relationship(
+        back_populates="treatment",
+    )
+    
+    control_schedules: Mapped[list["ControlSchedule"]] = relationship(
         back_populates="treatment",
     )
