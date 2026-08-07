@@ -9,6 +9,7 @@ from sqlalchemy import String, Boolean, DateTime
 from datetime import datetime
 
 from app.core.database import Base
+from app.models.notification import Notification
 
 
 class User(Base):
@@ -34,3 +35,6 @@ class User(Base):
     )
 
     patient: Mapped["Patient"] = relationship(back_populates="user", uselist=False)
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user",
+    )
