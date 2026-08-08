@@ -32,6 +32,14 @@ class NotificationType(str, Enum):
     VIDEO = "video"
 
 
+class NotificationReferenceType(str, Enum):
+    MEDICINE_SCHEDULE = "medicine_schedule"
+    CONTROL_SCHEDULE = "control_schedule"
+    COMPLAINT = "complaint"
+    REFILL = "refill"
+    VIDEO_VERIFICATION = "video_verification"
+
+
 class Notification(Base):
 
     __tablename__ = "notifications"
@@ -60,7 +68,12 @@ class Notification(Base):
         nullable=False,
     )
 
-    related_id: Mapped[int | None] = mapped_column(
+    reference_type: Mapped[NotificationReferenceType | None] = mapped_column(
+        SQLEnum(NotificationReferenceType),
+        nullable=True,
+    )
+
+    reference_id: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
