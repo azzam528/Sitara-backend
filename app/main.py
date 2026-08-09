@@ -17,7 +17,9 @@ from app.api.refill_requests import (
 from app.api.control_schedule import (
     router as control_schedule_router,
 )
-
+from app.api.notifications import (
+    router as notification_router,
+)
 
 app = FastAPI()
 
@@ -31,3 +33,5 @@ app.include_router(video_verification_router)
 app.include_router(complaint_router)
 app.include_router(refill_router)
 app.include_router(control_schedule_router)
+app.include_router(notification_router)
+

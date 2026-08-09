@@ -6,6 +6,11 @@ from app.repositories.notification_repository import (
     NotificationRepository,
 )
 
+from app.models.notification import (
+    Notification,
+    NotificationType,
+    NotificationReferenceType,
+)
 
 class NotificationService:
 
@@ -85,6 +90,32 @@ class NotificationService:
         )
 
         return self.repository.delete(
+            db,
+            notification,
+        )
+        
+    def create(
+        self,
+        db: Session,
+        user_id: int,
+        title: str,
+        message: str,
+        notification_type: NotificationType,
+        reference_type: NotificationReferenceType | None = None,
+        reference_id: int | None = None,
+    ):
+        notification = Notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            type=notification_type,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            is_read=False,
+            is_active=True,
+        )
+
+        return self.repository.create(
             db,
             notification,
         )
