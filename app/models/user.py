@@ -3,12 +3,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from app.models.patient import Patient
+    from app.models.notification import Notification
 
 from sqlalchemy import String, Boolean, DateTime
 
 from datetime import datetime
 
 from app.core.database import Base
+from app.models.notification import Notification
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 
 class User(Base):
@@ -34,3 +41,7 @@ class User(Base):
     )
 
     patient: Mapped["Patient"] = relationship(back_populates="user", uselist=False)
+    
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user",
+    )

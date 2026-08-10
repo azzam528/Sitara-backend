@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.user import router as user_router
@@ -10,10 +11,23 @@ from app.api.video_verification import (
     router as video_verification_router,
 )
 from app.api.complaint import router as complaint_router
-from app.schemas import complaint
-from fastapi.middleware.cors import CORSMiddleware
+from app.api.refill_requests import (
+    router as refill_router,
+)
+from app.api.control_schedule import (
+    router as control_schedule_router,
+)
+from app.api.notifications import (
+    router as notification_router,
+)
+
+
 app = FastAPI()
 
+
+# =========================
+# CORS
+# =========================
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# =========================
+# Routers
+# =========================
+
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(patient_router)
@@ -34,3 +53,6 @@ app.include_router(medicine_router)
 app.include_router(medicine_schedule_router)
 app.include_router(video_verification_router)
 app.include_router(complaint_router)
+app.include_router(refill_router)
+app.include_router(control_schedule_router)
+app.include_router(notification_router)
