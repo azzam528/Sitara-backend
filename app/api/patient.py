@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.patient import (
     PatientCreate,
     PatientResponse,
+    PatientCreateResponse,
     PatientUpdate,
 )
 
@@ -24,15 +25,18 @@ service = PatientService()
 
 @router.post(
     "",
-    response_model=PatientResponse,
+    response_model=PatientCreateResponse,
 )
 def create_patient(
     patient: PatientCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.create_patient(db, patient)
 
+    return service.create_patient(
+        db,
+        patient,
+    )
 
 @router.get(
     "",
