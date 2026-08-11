@@ -24,6 +24,7 @@ from app.api.dashboard import (
     router as dashboard_router,
 )
 
+
 app = FastAPI()
 
 
