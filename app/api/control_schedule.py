@@ -6,10 +6,13 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import (
+    require_nakes,
+    require_patient,
+)
 
 from app.models.user import User
-    
+
 from app.schemas.control_schedule import (
     ControlScheduleCreate,
     ControlScheduleUpdate,
@@ -28,6 +31,11 @@ router = APIRouter(
 service = ControlScheduleService()
 
 
+# =========================================================
+# NAKES
+# =========================================================
+
+
 @router.post(
     "",
     response_model=ControlScheduleResponse,
@@ -37,7 +45,6 @@ def create_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.create_schedule(
         db,
         schedule,
@@ -52,8 +59,31 @@ def get_all_schedules(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_all(db)
+
+
+# =========================================================
+# PATIENT
+# =========================================================
+
+
+@router.get(
+    "/my",
+    response_model=list[ControlScheduleResponse],
+)
+def get_my_schedules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_schedules(
+        db,
+        current_user.id,
+    )
+
+
+# =========================================================
+# NAKES
+# =========================================================
 
 
 @router.get(
@@ -65,7 +95,6 @@ def get_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_by_id(
         db,
         schedule_id,
@@ -82,7 +111,6 @@ def update_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.update_schedule(
         db,
         schedule_id,
@@ -99,7 +127,6 @@ def delete_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.delete_schedule(
         db,
         schedule_id,
