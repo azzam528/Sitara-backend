@@ -49,6 +49,17 @@ class MedicineScheduleResponse(BaseModel):
 
     updated_at: datetime
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MyMedicineScheduleResponse(BaseModel):
+    treatment_id: int
+    medicine_id: int
+    dosage: str
+    quantity_initial: int
+    quantity_remaining: int
+    drink_time: time
+
     model_config = ConfigDict(
-        from_attributes=True
+        from_attributes=True,
     )
