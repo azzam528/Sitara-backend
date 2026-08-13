@@ -2,6 +2,8 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from app.models.patient import Patient
+from app.models.treatment import Treatment
 
 from app.models.refill_request import (
     RefillRequest,
@@ -42,6 +44,7 @@ class RefillService:
         self,
         db: Session,
         refill_data: RefillCreate,
+        current_user: User,
     ):
 
         treatment = self.treatment_repository.get_by_id(
@@ -50,11 +53,35 @@ class RefillService:
         )
 
         if not treatment:
-
             raise HTTPException(
                 status_code=404,
                 detail="Treatment not found",
             )
+
+        # Patient hanya boleh request refill
+        # untuk treatment miliknya sendiri.
+        if current_user.role == "patient":
+
+            patient = (
+                db.query(Patient)
+                .filter(
+                    Patient.user_id == current_user.id,
+                    Patient.is_active.is_(True),
+                )
+                .first()
+            )
+
+            if not patient:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Patient profile not found",
+                )
+
+            if treatment.patient_id != patient.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Treatment does not belong to this patient",
+                )
 
         medicine = self.medicine_repository.get_by_id(
             db,
@@ -62,24 +89,17 @@ class RefillService:
         )
 
         if not medicine:
-
             raise HTTPException(
                 status_code=404,
                 detail="Medicine not found",
             )
 
         refill = RefillRequest(
-
             treatment_id=refill_data.treatment_id,
-
             medicine_id=refill_data.medicine_id,
-
             quantity=refill_data.quantity,
-
             reason=refill_data.reason,
-
             description=refill_data.description,
-
             status=RefillRequestStatus.PENDING,
         )
 

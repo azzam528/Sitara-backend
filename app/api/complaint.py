@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import (
+    require_nakes,
+    require_nakes_or_patient,
+)
 
 from app.models.user import User
 
@@ -31,14 +34,14 @@ service = ComplaintService()
 def create_complaint(
     complaint: ComplaintCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
+    current_user: User = Depends(require_nakes_or_patient),
 ):
 
     return service.create_complaint(
         db,
         complaint,
+        current_user,
     )
-
 
 @router.get(
     "",

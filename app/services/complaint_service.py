@@ -1,6 +1,8 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from app.models.patient import Patient
+from app.models.treatment import Treatment
+from app.models.user import User
 from app.models.complaint import Complaint
 
 from app.repositories.complaint_repository import (
@@ -31,6 +33,7 @@ class ComplaintService:
         self,
         db: Session,
         complaint_data: ComplaintCreate,
+        current_user: User,
     ):
 
         treatment = self.treatment_repository.get_by_id(
@@ -44,6 +47,31 @@ class ComplaintService:
                 detail="Treatment not found",
             )
 
+        # Patient hanya boleh membuat complaint
+        # untuk treatment miliknya sendiri.
+        if current_user.role == "patient":
+
+            patient = (
+                db.query(Patient)
+                .filter(
+                    Patient.user_id == current_user.id,
+                    Patient.is_active.is_(True),
+                )
+                .first()
+            )
+
+            if not patient:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Patient profile not found",
+                )
+
+            if treatment.patient_id != patient.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Treatment does not belong to this patient",
+                )
+
         complaint = Complaint(
             treatment_id=complaint_data.treatment_id,
             category=complaint_data.category,
@@ -55,31 +83,31 @@ class ComplaintService:
             complaint,
         )
 
-    def get_all(
-        self,
-        db: Session,
-    ):
+        def get_all(
+            self,
+            db: Session,
+        ):
 
-        return self.repository.get_all(db)
+            return self.repository.get_all(db)
 
-    def get_by_id(
-        self,
-        db: Session,
-        complaint_id: int,
-    ):
+        def get_by_id(
+            self,
+            db: Session,
+            complaint_id: int,
+        ):
 
-        complaint = self.repository.get_by_id(
-            db,
-            complaint_id,
-        )
-
-        if not complaint:
-            raise HTTPException(
-                status_code=404,
-                detail="Complaint not found",
+            complaint = self.repository.get_by_id(
+                db,
+                complaint_id,
             )
 
-        return complaint
+            if not complaint:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Complaint not found",
+                )
+
+            return complaint
 
     def update_complaint(
         self,

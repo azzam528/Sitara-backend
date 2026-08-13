@@ -6,7 +6,10 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import (
+    require_nakes,
+    require_nakes_or_patient,
+)
 
 from app.models.user import User
 
@@ -35,14 +38,14 @@ service = RefillService()
 def create_refill(
     refill: RefillCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
+    current_user: User = Depends(require_nakes_or_patient),
 ):
 
     return service.create_refill(
         db,
         refill,
+        current_user,
     )
-
 
 @router.get(
     "",
