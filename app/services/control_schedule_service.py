@@ -6,6 +6,14 @@ from app.models.control_schedule import (
     ControlScheduleStatus,
 )
 
+from app.models.treatment import Treatment
+from app.models.patient import Patient
+
+from app.models.notification import (
+    NotificationType,
+    NotificationReferenceType,
+)
+
 from app.repositories.control_schedule_repository import (
     ControlScheduleRepository,
 )
@@ -14,14 +22,14 @@ from app.repositories.treatment_repository import (
     TreatmentRepository,
 )
 
+from app.services.notification_service import (
+    NotificationService,
+)
+
 from app.schemas.control_schedule import (
     ControlScheduleCreate,
     ControlScheduleUpdate,
 )
-
-from app.models.control_schedule import ControlSchedule
-from app.models.treatment import Treatment
-from app.models.patient import Patient
 
 
 class ControlScheduleService:
@@ -31,6 +39,12 @@ class ControlScheduleService:
         self.control_schedule_repository = ControlScheduleRepository()
 
         self.treatment_repository = TreatmentRepository()
+
+        self.notification_service = NotificationService()
+
+    # =====================================================
+    # CREATE
+    # =====================================================
 
     def create_schedule(
         self,
@@ -50,6 +64,10 @@ class ControlScheduleService:
                 detail="Treatment not found",
             )
 
+        # -------------------------------------------------
+        # CREATE CONTROL SCHEDULE
+        # -------------------------------------------------
+
         schedule = ControlSchedule(
             treatment_id=schedule_data.treatment_id,
             control_date=schedule_data.control_date,
@@ -58,10 +76,53 @@ class ControlScheduleService:
             status=ControlScheduleStatus.PENDING,
         )
 
-        return self.control_schedule_repository.create(
+        schedule = self.control_schedule_repository.create(
             db,
             schedule,
         )
+
+        # -------------------------------------------------
+        # FIND PATIENT
+        # -------------------------------------------------
+
+        patient = (
+            db.query(Patient)
+            .filter(
+                Patient.id == treatment.patient_id,
+                Patient.is_active.is_(True),
+            )
+            .first()
+        )
+
+        if patient:
+
+            # -------------------------------------------------
+            # CREATE NOTIFICATION
+            # -------------------------------------------------
+
+            formatted_date = schedule.control_date.strftime("%d-%m-%Y")
+
+            formatted_time = schedule.control_time.strftime("%H:%M")
+
+            self.notification_service.create(
+                db=db,
+                user_id=patient.user_id,
+                title="Jadwal Kontrol Baru",
+                message=(
+                    f"Kamu memiliki jadwal kontrol "
+                    f"pada {formatted_date} "
+                    f"pukul {formatted_time}."
+                ),
+                notification_type=(NotificationType.CONTROL),
+                reference_type=(NotificationReferenceType.CONTROL_SCHEDULE),
+                reference_id=schedule.id,
+            )
+
+        return schedule
+
+    # =====================================================
+    # GET ALL
+    # =====================================================
 
     def get_all(
         self,
@@ -69,6 +130,10 @@ class ControlScheduleService:
     ):
 
         return self.control_schedule_repository.get_all(db)
+
+    # =====================================================
+    # GET BY ID
+    # =====================================================
 
     def get_by_id(
         self,
@@ -89,6 +154,10 @@ class ControlScheduleService:
             )
 
         return schedule
+
+    # =====================================================
+    # UPDATE
+    # =====================================================
 
     def update_schedule(
         self,
@@ -130,6 +199,10 @@ class ControlScheduleService:
             schedule,
         )
 
+    # =====================================================
+    # DELETE
+    # =====================================================
+
     def delete_schedule(
         self,
         db: Session,
@@ -153,11 +226,16 @@ class ControlScheduleService:
             schedule,
         )
 
+    # =====================================================
+    # GET MY SCHEDULES
+    # =====================================================
+
     def get_my_schedules(
         self,
         db: Session,
         user_id: int,
     ):
+
         return (
             db.query(ControlSchedule)
             .join(
@@ -170,9 +248,9 @@ class ControlScheduleService:
             )
             .filter(
                 Patient.user_id == user_id,
-                Patient.is_active == True,
-                Treatment.is_active == True,
-                ControlSchedule.is_active == True,
+                Patient.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                ControlSchedule.is_active.is_(True),
             )
             .order_by(
                 ControlSchedule.control_date.asc(),
