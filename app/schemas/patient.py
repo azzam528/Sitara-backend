@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.patient import GenderEnum
 
@@ -11,15 +11,13 @@ from app.models.patient import GenderEnum
 
 class PatientCreate(BaseModel):
 
-    # Account
-    username: str = Field(min_length=3, max_length=100)
-    email: EmailStr
-    password: str = Field(min_length=8)
+    medical_record_number: str = Field(
+        max_length=20
+    )
 
-    # Patient
-    medical_record_number: str = Field(max_length=20)
-
-    full_name: str = Field(max_length=255)
+    full_name: str = Field(
+        max_length=255
+    )
 
     nik: str = Field(
         min_length=16,
@@ -30,15 +28,23 @@ class PatientCreate(BaseModel):
 
     gender: GenderEnum
 
-    phone: str = Field(max_length=15)
+    phone: str = Field(
+        max_length=15
+    )
 
     address: str
 
-    occupation: str = Field(max_length=100)
+    occupation: str = Field(
+        max_length=100
+    )
 
-    pmo_name: str = Field(max_length=100)
+    pmo_name: str = Field(
+        max_length=100
+    )
 
-    pmo_phone: str = Field(max_length=15)
+    pmo_phone: str = Field(
+        max_length=15
+    )
 
     clinical_note: str | None = None
 
@@ -93,7 +99,6 @@ class PatientResponse(BaseModel):
 
     full_name: str
 
-
     nik: str
 
     birth_date: date
@@ -121,3 +126,16 @@ class PatientResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+# ==========================
+# CREATE RESPONSE
+# ==========================
+
+class PatientCreateResponse(BaseModel):
+
+    patient: PatientResponse
+
+    username: str
+
+    temporary_password: str

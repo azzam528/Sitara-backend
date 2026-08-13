@@ -2,18 +2,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import require_nakes, require_patient
 
 from app.models.user import User
 
 from app.schemas.treatment import (
+    MyTreatmentResponse,
     TreatmentCreate,
     TreatmentUpdate,
     TreatmentResponse,
 )
 
 from app.services.treatment_service import TreatmentService
-
 
 router = APIRouter(
     prefix="/treatments",
@@ -47,6 +47,20 @@ def get_all_treatments(
     current_user: User = Depends(require_nakes),
 ):
     return service.get_all(db)
+
+
+@router.get(
+    "/my",
+    response_model=list[MyTreatmentResponse],
+)
+def get_my_treatments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_treatments(
+        db,
+        current_user.id,
+    )
 
 
 @router.get(

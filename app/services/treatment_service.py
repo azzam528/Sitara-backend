@@ -59,23 +59,14 @@ class TreatmentService:
             )
 
         treatment = Treatment(
-
             patient_id=treatment_data.patient_id,
-
             diagnosis_date=treatment_data.diagnosis_date,
-
             therapy_start_date=treatment_data.therapy_start_date,
-
             therapy_end_date=treatment_data.therapy_end_date,
-
             phase=treatment_data.phase,
-
             regimen=treatment_data.regimen,
-
             status=TreatmentStatus.ACTIVE,
-
             doctor_name=treatment_data.doctor_name,
-
             doctor_note=treatment_data.doctor_note,
         )
 
@@ -102,6 +93,16 @@ class TreatmentService:
             )
 
         return treatment
+
+    def get_my_treatments(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return self.treatment_repository.get_my_treatments(
+            db,
+            user_id,
+        )
 
     def update(
         self,

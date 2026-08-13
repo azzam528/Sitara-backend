@@ -70,11 +70,24 @@ class TreatmentResponse(BaseModel):
     doctor_note: str | None
 
     is_active: bool
-    
+
     created_at: datetime
 
     updated_at: datetime
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MyTreatmentResponse(BaseModel):
+    id: int
+    patient_id: int
+    therapy_start_date: date
+    therapy_end_date: date
+    phase: TreatmentPhase
+    regimen: RegimenEnum
+    status: TreatmentStatus
+    doctor_name: str
+
     model_config = ConfigDict(
-        from_attributes=True
+        from_attributes=True,
     )

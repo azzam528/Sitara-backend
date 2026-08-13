@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 
 from app.models.medicine_schedule import MedicineSchedule
+from app.models.patient import Patient
+from app.models.treatment import Treatment
 
 
 class MedicineScheduleRepository:
@@ -42,7 +44,7 @@ class MedicineScheduleRepository:
         return (
             db.query(MedicineSchedule)
             .filter(
-                MedicineSchedule.is_active == True, 
+                MedicineSchedule.is_active == True,
             )
             .all()
         )
@@ -78,7 +80,7 @@ class MedicineScheduleRepository:
             )
             .first()
         )
-    
+
     def update(
         self,
         db: Session,
@@ -104,3 +106,26 @@ class MedicineScheduleRepository:
         db.refresh(schedule)
 
         return schedule
+
+    def get_my_schedules(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(MedicineSchedule)
+            .join(
+                Treatment,
+                Treatment.id == MedicineSchedule.treatment_id,
+            )
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .filter(
+                Patient.user_id == user_id,
+                MedicineSchedule.is_active.is_(True),
+                Treatment.is_active.is_(True),
+            )
+            .all()
+        )

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import (
     require_nakes,
+    require_patient,
     require_nakes_or_patient,
 )
 
@@ -27,6 +28,11 @@ router = APIRouter(
 service = ComplaintService()
 
 
+# =========================================================
+# NAKES
+# =========================================================
+
+
 @router.post(
     "",
     response_model=ComplaintResponse,
@@ -36,7 +42,6 @@ def create_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes_or_patient),
 ):
-
     return service.create_complaint(
         db,
         complaint,
@@ -51,8 +56,31 @@ def get_all_complaints(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_all(db)
+
+
+# =========================================================
+# PATIENT
+# =========================================================
+
+
+@router.get(
+    "/my",
+    response_model=list[ComplaintResponse],
+)
+def get_my_complaints(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_complaints(
+        db,
+        current_user.id,
+    )
+
+
+# =========================================================
+# NAKES
+# =========================================================
 
 
 @router.get(
@@ -64,7 +92,6 @@ def get_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_by_id(
         db,
         complaint_id,
@@ -81,7 +108,6 @@ def update_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.update_complaint(
         db,
         complaint_id,
@@ -98,7 +124,6 @@ def delete_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.delete_complaint(
         db,
         complaint_id,

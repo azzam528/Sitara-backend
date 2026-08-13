@@ -15,10 +15,10 @@ from app.repositories.treatment_repository import (
 
 from app.schemas.complaint import (
     ComplaintCreate,
-    
-    
     ComplaintUpdate,
 )
+from app.models.patient import Patient
+from app.models.treatment import Treatment
 
 
 class ComplaintService:
@@ -127,9 +127,7 @@ class ComplaintService:
                 detail="Complaint not found",
             )
 
-        update_data = complaint_data.model_dump(
-            exclude_unset=True
-        )
+        update_data = complaint_data.model_dump(exclude_unset=True)
 
         for key, value in update_data.items():
             setattr(
@@ -163,4 +161,31 @@ class ComplaintService:
         return self.repository.delete(
             db,
             complaint,
+        )
+
+    def get_my_complaints(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(Complaint)
+            .join(
+                Treatment,
+                Complaint.treatment_id == Treatment.id,
+            )
+            .join(
+                Patient,
+                Treatment.patient_id == Patient.id,
+            )
+            .filter(
+                Patient.user_id == user_id,
+                Patient.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Complaint.is_active.is_(True),
+            )
+            .order_by(
+                Complaint.created_at.desc(),
+            )
+            .all()
         )

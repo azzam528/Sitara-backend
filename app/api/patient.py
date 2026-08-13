@@ -5,33 +5,38 @@ from app.core.database import get_db
 from app.core.dependencies import require_nakes
 from app.core.dependencies import require_patient
 from app.models.user import User
+from app.schemas.patient_detail import PatientDetailResponse
+from app.services.patient_detail_service import PatientDetailService
 
 from app.schemas.patient import (
     PatientCreate,
     PatientResponse,
+    PatientCreateResponse,
     PatientUpdate,
 )
 
 from app.services.patient_service import PatientService
 
-router = APIRouter(
-    prefix="/patients",
-    tags=["Patients"]
-)
+router = APIRouter(prefix="/patients", tags=["Patients"])
 
 service = PatientService()
+detail_service = PatientDetailService()
 
 
 @router.post(
     "",
-    response_model=PatientResponse,
+    response_model=PatientCreateResponse,
 )
 def create_patient(
     patient: PatientCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.create_patient(db, patient)
+
+    return service.create_patient(
+        db,
+        patient,
+    )
 
 
 @router.get(
@@ -43,6 +48,7 @@ def get_all_patients(
     current_user: User = Depends(require_nakes),
 ):
     return service.get_all(db)
+
 
 @router.get(
     "/profile",
@@ -57,6 +63,20 @@ def get_profile(
         current_user,
     )
 
+
+@router.get(
+    "/{patient_id}/detail",
+    response_model=PatientDetailResponse,
+)
+def get_patient_detail(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return detail_service.get_detail(
+        db,
+        patient_id,
+    )
 
 
 @router.get(
@@ -104,4 +124,3 @@ def delete_patient(
         db,
         patient_id,
     )
-    

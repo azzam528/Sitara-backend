@@ -28,6 +28,8 @@ from app.schemas.refill_request import (
     RefillCreate,
     RefillUpdate,
 )
+from app.models.patient import Patient
+from app.models.treatment import Treatment
 
 
 class RefillService:
@@ -198,4 +200,31 @@ class RefillService:
         return self.refill_repository.delete(
             db,
             refill,
+        )
+
+    def get_my_refills(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(RefillRequest)
+            .join(
+                Treatment,
+                RefillRequest.treatment_id == Treatment.id,
+            )
+            .join(
+                Patient,
+                Treatment.patient_id == Patient.id,
+            )
+            .filter(
+                Patient.user_id == user_id,
+                Patient.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                RefillRequest.is_active.is_(True),
+            )
+            .order_by(
+                RefillRequest.created_at.desc(),
+            )
+            .all()
         )

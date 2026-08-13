@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import require_nakes, require_patient
 
 from app.models.user import User
 
@@ -10,6 +10,7 @@ from app.schemas.medicine_schedule import (
     MedicineScheduleCreate,
     MedicineScheduleUpdate,
     MedicineScheduleResponse,
+    MyMedicineScheduleResponse,
 )
 
 from app.services.medicine_schedule_service import (
@@ -20,6 +21,7 @@ router = APIRouter(
     prefix="/medicine-schedules",
     tags=["Medicine Schedules"],
 )
+
 
 @router.post(
     "",
@@ -35,7 +37,8 @@ def create_schedule(
         db,
         schedule,
     )
-    
+
+
 @router.get(
     "",
     response_model=list[MedicineScheduleResponse],
@@ -46,6 +49,21 @@ def get_all_schedules(
 ):
 
     return service.get_all(db)
+
+
+@router.get(
+    "/my",
+    response_model=list[MyMedicineScheduleResponse],
+)
+def get_my_schedules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_schedules(
+        db,
+        current_user.id,
+    )
+
 
 @router.get(
     "/{schedule_id}",
@@ -61,7 +79,8 @@ def get_schedule(
         db,
         schedule_id,
     )
-    
+
+
 @router.put(
     "/{schedule_id}",
     response_model=MedicineScheduleResponse,
@@ -78,7 +97,8 @@ def update_schedule(
         schedule_id,
         schedule_data,
     )
-    
+
+
 @router.delete(
     "/{schedule_id}",
     response_model=MedicineScheduleResponse,
@@ -93,5 +113,6 @@ def delete_schedule(
         db,
         schedule_id,
     )
+
 
 service = MedicineScheduleService()

@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from app.models.patient import Patient
 
 from app.models.treatment import (
     Treatment,
@@ -40,13 +41,7 @@ class TreatmentRepository:
         db: Session,
     ):
 
-        return (
-            db.query(Treatment)
-            .filter(
-                Treatment.is_active == True
-            )
-            .all()
-        )
+        return db.query(Treatment).filter(Treatment.is_active == True).all()
 
     def get_by_patient_id(
         self,
@@ -64,20 +59,20 @@ class TreatmentRepository:
         )
 
     def get_active_by_patient_id(
-            self,
-            db: Session,
-            patient_id: int,
-        ):
-    
-            return (
-                db.query(Treatment)
-                .filter(
-                    Treatment.patient_id == patient_id,
-                    Treatment.status == TreatmentStatus.ACTIVE,
-                    Treatment.is_active == True,
-                )
-                .first()
+        self,
+        db: Session,
+        patient_id: int,
+    ):
+
+        return (
+            db.query(Treatment)
+            .filter(
+                Treatment.patient_id == patient_id,
+                Treatment.status == TreatmentStatus.ACTIVE,
+                Treatment.is_active == True,
             )
+            .first()
+        )
 
     def update(
         self,
@@ -103,5 +98,21 @@ class TreatmentRepository:
         db.refresh(treatment)
 
         return treatment
-        
-    
+
+    def get_my_treatments(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(Treatment)
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .filter(
+                Patient.user_id == user_id,
+                Treatment.is_active.is_(True),
+            )
+            .all()
+        )

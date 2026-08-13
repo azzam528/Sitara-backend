@@ -74,20 +74,14 @@ class MedicineScheduleService:
             raise HTTPException(
                 status_code=400,
                 detail="Medicine schedule already exists",
-            )    
-            
+            )
+
         schedule = MedicineSchedule(
-
             treatment_id=schedule_data.treatment_id,
-
             medicine_id=schedule_data.medicine_id,
-
             dosage=schedule_data.dosage,
-
             quantity_initial=schedule_data.quantity_initial,
-
             quantity_remaining=schedule_data.quantity_remaining,
-
             drink_time=schedule_data.drink_time,
         )
 
@@ -170,4 +164,14 @@ class MedicineScheduleService:
         return self.schedule_repository.delete(
             db,
             schedule,
+        )
+
+    def get_my_schedules(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return self.schedule_repository.get_my_schedules(
+            db,
+            user_id,
         )

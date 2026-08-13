@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import (
     require_nakes,
+    require_patient,
     require_nakes_or_patient,
 )
 
@@ -31,6 +32,11 @@ router = APIRouter(
 service = RefillService()
 
 
+# =========================================================
+# NAKES
+# =========================================================
+
+
 @router.post(
     "",
     response_model=RefillResponse,
@@ -40,7 +46,6 @@ def create_refill(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes_or_patient),
 ):
-
     return service.create_refill(
         db,
         refill,
@@ -55,8 +60,31 @@ def get_all_refills(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_all(db)
+
+
+# =========================================================
+# PATIENT
+# =========================================================
+
+
+@router.get(
+    "/my",
+    response_model=list[RefillResponse],
+)
+def get_my_refills(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_refills(
+        db,
+        current_user.id,
+    )
+
+
+# =========================================================
+# NAKES
+# =========================================================
 
 
 @router.get(
@@ -68,7 +96,6 @@ def get_refill(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.get_by_id(
         db,
         refill_id,
@@ -85,7 +112,6 @@ def update_refill(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.update_refill(
         db,
         refill_id,
@@ -103,7 +129,6 @@ def delete_refill(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.delete_refill(
         db,
         refill_id,
