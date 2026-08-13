@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.patient import Patient
 from app.models.treatment import Treatment
+from app.models.medicine import Medicine
 
 
 class MedicineScheduleRepository:
@@ -112,8 +113,11 @@ class MedicineScheduleRepository:
         db: Session,
         user_id: int,
     ):
-        return (
-            db.query(MedicineSchedule)
+        results = (
+            db.query(
+                MedicineSchedule,
+                Medicine.name,
+            )
             .join(
                 Treatment,
                 Treatment.id == MedicineSchedule.treatment_id,
@@ -122,10 +126,29 @@ class MedicineScheduleRepository:
                 Patient,
                 Patient.id == Treatment.patient_id,
             )
+            .join(
+                Medicine,
+                Medicine.id == MedicineSchedule.medicine_id,
+            )
             .filter(
                 Patient.user_id == user_id,
-                MedicineSchedule.is_active.is_(True),
+                Patient.is_active.is_(True),
                 Treatment.is_active.is_(True),
+                MedicineSchedule.is_active.is_(True),
+                Medicine.is_active.is_(True),
             )
             .all()
         )
+
+        return [
+            {
+                "treatment_id": schedule.treatment_id,
+                "medicine_id": schedule.medicine_id,
+                "medicine_name": medicine_name,
+                "dosage": schedule.dosage,
+                "quantity_initial": schedule.quantity_initial,
+                "quantity_remaining": schedule.quantity_remaining,
+                "drink_time": schedule.drink_time,
+            }
+            for schedule, medicine_name in results
+        ]

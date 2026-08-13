@@ -55,6 +55,8 @@ class MedicineScheduleResponse(BaseModel):
 class MyMedicineScheduleResponse(BaseModel):
     treatment_id: int
     medicine_id: int
+    medicine_name: str
+
     dosage: str
     quantity_initial: int
     quantity_remaining: int
