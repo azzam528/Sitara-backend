@@ -82,6 +82,22 @@ def get_my_refills(
     )
 
 
+@router.post(
+    "/my",
+    response_model=RefillResponse,
+)
+def create_my_refill(
+    refill: RefillCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.create_my_refill(
+        db,
+        refill,
+        current_user.id,
+    )
+
+
 # =========================================================
 # NAKES
 # =========================================================

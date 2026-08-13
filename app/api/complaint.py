@@ -78,6 +78,22 @@ def get_my_complaints(
     )
 
 
+@router.post(
+    "/my",
+    response_model=ComplaintResponse,
+)
+def create_my_complaint(
+    complaint: ComplaintCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.create_my_complaint(
+        db,
+        complaint,
+        current_user.id,
+    )
+
+
 # =========================================================
 # NAKES
 # =========================================================

@@ -189,3 +189,41 @@ class ComplaintService:
             )
             .all()
         )
+
+    def create_my_complaint(
+        self,
+        db: Session,
+        complaint_data: ComplaintCreate,
+        user_id: int,
+    ):
+        treatment = (
+            db.query(Treatment)
+            .join(
+                Patient,
+                Treatment.patient_id == Patient.id,
+            )
+            .filter(
+                Treatment.id == complaint_data.treatment_id,
+                Patient.user_id == user_id,
+                Patient.is_active.is_(True),
+                Treatment.is_active.is_(True),
+            )
+            .first()
+        )
+
+        if not treatment:
+            raise HTTPException(
+                status_code=404,
+                detail="Treatment not found or does not belong to this patient",
+            )
+
+        complaint = Complaint(
+            treatment_id=treatment.id,
+            category=complaint_data.category,
+            description=complaint_data.description,
+        )
+
+        return self.repository.create(
+            db,
+            complaint,
+        )

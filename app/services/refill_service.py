@@ -228,3 +228,55 @@ class RefillService:
             )
             .all()
         )
+
+    def create_my_refill(
+        self,
+        db: Session,
+        refill_data: RefillCreate,
+        user_id: int,
+    ):
+        treatment = (
+            db.query(Treatment)
+            .join(
+                Patient,
+                Treatment.patient_id == Patient.id,
+            )
+            .filter(
+                Treatment.id == refill_data.treatment_id,
+                Patient.user_id == user_id,
+                Patient.is_active.is_(True),
+                Treatment.is_active.is_(True),
+            )
+            .first()
+        )
+
+        if not treatment:
+            raise HTTPException(
+                status_code=404,
+                detail="Treatment not found or does not belong to this patient",
+            )
+
+        medicine = self.medicine_repository.get_by_id(
+            db,
+            refill_data.medicine_id,
+        )
+
+        if not medicine:
+            raise HTTPException(
+                status_code=404,
+                detail="Medicine not found",
+            )
+
+        refill = RefillRequest(
+            treatment_id=treatment.id,
+            medicine_id=refill_data.medicine_id,
+            quantity=refill_data.quantity,
+            reason=refill_data.reason,
+            description=refill_data.description,
+            status=RefillRequestStatus.PENDING,
+        )
+
+        return self.refill_repository.create(
+            db,
+            refill,
+        )
