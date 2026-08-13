@@ -1,9 +1,15 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
 from app.models.patient import Patient
 from app.models.treatment import Treatment
 from app.models.user import User
 from app.models.complaint import Complaint
+
+from app.models.notification import (
+    NotificationType,
+    NotificationReferenceType,
+)
 
 from app.repositories.complaint_repository import (
     ComplaintRepository,
@@ -13,12 +19,18 @@ from app.repositories.treatment_repository import (
     TreatmentRepository,
 )
 
+from app.repositories.user_repository import (
+    UserRepository,
+)
+
 from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintUpdate,
 )
-from app.models.patient import Patient
-from app.models.treatment import Treatment
+
+from app.services.notification_service import (
+    NotificationService,
+)
 
 
 class ComplaintService:
@@ -28,6 +40,15 @@ class ComplaintService:
         self.repository = ComplaintRepository()
 
         self.treatment_repository = TreatmentRepository()
+
+        self.user_repository = UserRepository()
+
+        self.notification_service = NotificationService()
+
+    # =====================================================
+    # CREATE COMPLAINT
+    # NAKES + PATIENT
+    # =====================================================
 
     def create_complaint(
         self,
@@ -42,13 +63,16 @@ class ComplaintService:
         )
 
         if not treatment:
+
             raise HTTPException(
                 status_code=404,
                 detail="Treatment not found",
             )
 
-        # Patient hanya boleh membuat complaint
-        # untuk treatment miliknya sendiri.
+        # -------------------------------------------------
+        # PATIENT OWNERSHIP CHECK
+        # -------------------------------------------------
+
         if current_user.role == "patient":
 
             patient = (
@@ -61,16 +85,22 @@ class ComplaintService:
             )
 
             if not patient:
+
                 raise HTTPException(
                     status_code=404,
                     detail="Patient profile not found",
                 )
 
             if treatment.patient_id != patient.id:
+
                 raise HTTPException(
                     status_code=403,
                     detail="Treatment does not belong to this patient",
                 )
+
+        # -------------------------------------------------
+        # CREATE COMPLAINT
+        # -------------------------------------------------
 
         complaint = Complaint(
             treatment_id=complaint_data.treatment_id,
@@ -78,36 +108,79 @@ class ComplaintService:
             description=complaint_data.description,
         )
 
-        return self.repository.create(
+        complaint = self.repository.create(
             db,
             complaint,
         )
 
-        def get_all(
-            self,
-            db: Session,
-        ):
+        # -------------------------------------------------
+        # NOTIFICATION
+        #
+        # Hanya ketika PATIENT membuat complaint,
+        # notify semua Nakes aktif.
+        # -------------------------------------------------
 
-            return self.repository.get_all(db)
+        if current_user.role == "patient":
 
-        def get_by_id(
-            self,
-            db: Session,
-            complaint_id: int,
-        ):
-
-            complaint = self.repository.get_by_id(
+            nakes_list = self.user_repository.get_all_nakes(
                 db,
-                complaint_id,
             )
 
-            if not complaint:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Complaint not found",
+            for nakes in nakes_list:
+
+                self.notification_service.create(
+                    db=db,
+                    user_id=nakes.id,
+                    title="Complaint Baru",
+                    message="Pasien mengirim complaint baru.",
+                    notification_type=NotificationType.COMPLAINT,
+                    reference_type=NotificationReferenceType.COMPLAINT,
+                    reference_id=complaint.id,
                 )
 
             return complaint
+
+    # =====================================================
+    # GET ALL
+    # NAKES
+    # =====================================================
+
+    def get_all(
+        self,
+        db: Session,
+    ):
+
+        return self.repository.get_all(db)
+
+    # =====================================================
+    # GET BY ID
+    # NAKES
+    # =====================================================
+
+    def get_by_id(
+        self,
+        db: Session,
+        complaint_id: int,
+    ):
+
+        complaint = self.repository.get_by_id(
+            db,
+            complaint_id,
+        )
+
+        if not complaint:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Complaint not found",
+            )
+
+        return complaint
+
+    # =====================================================
+    # UPDATE
+    # NAKES
+    # =====================================================
 
     def update_complaint(
         self,
@@ -122,14 +195,18 @@ class ComplaintService:
         )
 
         if not complaint:
+
             raise HTTPException(
                 status_code=404,
                 detail="Complaint not found",
             )
 
-        update_data = complaint_data.model_dump(exclude_unset=True)
+        update_data = complaint_data.model_dump(
+            exclude_unset=True,
+        )
 
         for key, value in update_data.items():
+
             setattr(
                 complaint,
                 key,
@@ -140,6 +217,11 @@ class ComplaintService:
             db,
             complaint,
         )
+
+    # =====================================================
+    # DELETE
+    # NAKES
+    # =====================================================
 
     def delete_complaint(
         self,
@@ -153,6 +235,7 @@ class ComplaintService:
         )
 
         if not complaint:
+
             raise HTTPException(
                 status_code=404,
                 detail="Complaint not found",
@@ -163,11 +246,17 @@ class ComplaintService:
             complaint,
         )
 
+    # =====================================================
+    # GET MY COMPLAINTS
+    # PATIENT
+    # =====================================================
+
     def get_my_complaints(
         self,
         db: Session,
         user_id: int,
     ):
+
         return (
             db.query(Complaint)
             .join(
@@ -188,42 +277,4 @@ class ComplaintService:
                 Complaint.created_at.desc(),
             )
             .all()
-        )
-
-    def create_my_complaint(
-        self,
-        db: Session,
-        complaint_data: ComplaintCreate,
-        user_id: int,
-    ):
-        treatment = (
-            db.query(Treatment)
-            .join(
-                Patient,
-                Treatment.patient_id == Patient.id,
-            )
-            .filter(
-                Treatment.id == complaint_data.treatment_id,
-                Patient.user_id == user_id,
-                Patient.is_active.is_(True),
-                Treatment.is_active.is_(True),
-            )
-            .first()
-        )
-
-        if not treatment:
-            raise HTTPException(
-                status_code=404,
-                detail="Treatment not found or does not belong to this patient",
-            )
-
-        complaint = Complaint(
-            treatment_id=treatment.id,
-            category=complaint_data.category,
-            description=complaint_data.description,
-        )
-
-        return self.repository.create(
-            db,
-            complaint,
         )
