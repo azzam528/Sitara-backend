@@ -27,6 +27,10 @@ class DashboardService:
             self.repository.get_critical_stock(db)
         )
 
+        recent_activities = (
+            self.repository.get_recent_activities(db)
+        )
+
         return {
             "summary": {
                 "active_patients": active_patients,
@@ -44,7 +48,7 @@ class DashboardService:
 
             "adherence_trend": [],
 
-            "recent_activities": [],
+            "recent_activities": recent_activities,
 
             "critical_stock": [
                 {

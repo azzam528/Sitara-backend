@@ -7,7 +7,8 @@ from app.models.patient import Patient
 from app.models.complaint import Complaint
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
-
+from app.models.refill_request import RefillRequest
+from app.models.control_schedule import ControlSchedule
 
 class DashboardRepository:
 
@@ -64,3 +65,106 @@ class DashboardRepository:
             )
             .all()
         )
+    def get_recent_activities(
+        self,
+        db: Session,
+        limit: int = 10,
+    ):
+        activities = []
+
+        # ==========================================
+        # COMPLAINTS
+        # ==========================================
+
+        complaints = (
+            db.query(Complaint)
+            .filter(
+                Complaint.is_active.is_(True),
+            )
+            .order_by(
+                Complaint.created_at.desc(),
+            )
+            .limit(limit)
+            .all()
+        )
+
+        for complaint in complaints:
+            activities.append(
+                {
+                    "type": "complaint",
+                    "title": "Complaint baru",
+                    "description": complaint.description,
+                    "created_at": complaint.created_at.isoformat(),
+                }
+            )
+
+        # ==========================================
+        # REFILL REQUESTS
+        # ==========================================
+
+        refills = (
+            db.query(RefillRequest)
+            .filter(
+                RefillRequest.is_active.is_(True),
+            )
+            .order_by(
+                RefillRequest.created_at.desc(),
+            )
+            .limit(limit)
+            .all()
+        )
+
+        for refill in refills:
+            activities.append(
+                {
+                    "type": "refill",
+                    "title": "Permintaan refill baru",
+                    "description": (
+                        f"Permintaan refill sebanyak "
+                        f"{refill.quantity} unit. "
+                        f"Status: {refill.status.value}"
+                    ),
+                    "created_at": refill.created_at.isoformat(),
+                }
+            )
+
+        # ==========================================
+        # CONTROL SCHEDULE
+        # ==========================================
+
+        schedules = (
+            db.query(ControlSchedule)
+            .filter(
+                ControlSchedule.is_active.is_(True),
+            )
+            .order_by(
+                ControlSchedule.created_at.desc(),
+            )
+            .limit(limit)
+            .all()
+        )
+
+        for schedule in schedules:
+            activities.append(
+                {
+                    "type": "control_schedule",
+                    "title": "Jadwal kontrol baru",
+                    "description": (
+                        f"Jadwal kontrol "
+                        f"{schedule.control_date} "
+                        f"{schedule.control_time}"
+                    ),
+                    "created_at": schedule.created_at.isoformat(),
+                }
+            )
+
+        # ==========================================
+        # SORT ALL ACTIVITIES
+        # ==========================================
+
+        activities.sort(
+            key=lambda item: item["created_at"],
+            reverse=True,
+        )
+
+        return activities[:limit]
