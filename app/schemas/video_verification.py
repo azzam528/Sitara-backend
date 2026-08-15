@@ -4,6 +4,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict
 
 
+
 class VerificationStatus(str, Enum):
     PENDING = "pending"
     VERIFIED = "verified"

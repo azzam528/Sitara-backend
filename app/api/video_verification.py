@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import require_nakes
+from app.core.dependencies import (
+    require_nakes,
+    require_patient,
+)
 
 from app.models.user import User
 
@@ -30,18 +33,47 @@ service = VideoVerificationService()
 def create_video(
     video: VideoVerificationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
+    current_user: User = Depends(require_patient),
 ):
 
     return service.create_video(
         db,
         video,
+        current_user,
     )
-    
+def create_video(
+    video: VideoVerificationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+
+    return service.create_video(
+        db,
+        video,
+        current_user,
+    )
+
+def create_video(
+    video: VideoVerificationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+
+    return service.create_video(
+        db,
+        video,
+        current_user,
+    )
 @router.get(
     "",
     response_model=list[VideoVerificationResponse],
 )
+def get_all_videos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.get_all(db)
+
 def get_all_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
@@ -59,11 +91,11 @@ def update_video(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.update_video(
         db,
         video_id,
         video_data,
+        current_user,
     )
     
 @router.delete(
