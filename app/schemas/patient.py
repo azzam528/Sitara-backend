@@ -4,47 +4,32 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.patient import GenderEnum
 
-
 # ==========================
 # CREATE
 # ==========================
 
+
 class PatientCreate(BaseModel):
 
-    medical_record_number: str = Field(
-        max_length=20
-    )
+    medical_record_number: str = Field(max_length=20)
 
-    full_name: str = Field(
-        max_length=255
-    )
+    full_name: str = Field(max_length=255)
 
-    nik: str = Field(
-        min_length=16,
-        max_length=16
-    )
+    nik: str = Field(min_length=16, max_length=16)
 
     birth_date: date
 
     gender: GenderEnum
 
-    phone: str = Field(
-        max_length=15
-    )
+    phone: str = Field(max_length=15)
 
     address: str
 
-    occupation: str = Field(
-        max_length=100
-    )
+    occupation: str = Field(max_length=100)
 
-    pmo_name: str = Field(
-        max_length=100
-    )
+    pmo_name: str = Field(max_length=100)
 
-    pmo_phone: str = Field(
-        max_length=15
-    )
+    pmo_phone: str = Field(max_length=15)
 
     clinical_note: str | None = None
 
@@ -53,34 +38,20 @@ class PatientCreate(BaseModel):
 # UPDATE
 # ==========================
 
+
 class PatientUpdate(BaseModel):
 
-    full_name: str | None = Field(
-        default=None,
-        max_length=255
-    )
+    full_name: str | None = Field(default=None, max_length=255)
 
-    phone: str | None = Field(
-        default=None,
-        max_length=15
-    )
+    phone: str | None = Field(default=None, max_length=15)
 
     address: str | None = None
 
-    occupation: str | None = Field(
-        default=None,
-        max_length=100
-    )
+    occupation: str | None = Field(default=None, max_length=100)
 
-    pmo_name: str | None = Field(
-        default=None,
-        max_length=100
-    )
+    pmo_name: str | None = Field(default=None, max_length=100)
 
-    pmo_phone: str | None = Field(
-        default=None,
-        max_length=15
-    )
+    pmo_phone: str | None = Field(default=None, max_length=15)
 
     clinical_note: str | None = None
 
@@ -88,6 +59,7 @@ class PatientUpdate(BaseModel):
 # ==========================
 # RESPONSE
 # ==========================
+
 
 class PatientResponse(BaseModel):
 
@@ -123,14 +95,13 @@ class PatientResponse(BaseModel):
 
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==========================
 # CREATE RESPONSE
 # ==========================
+
 
 class PatientCreateResponse(BaseModel):
 
@@ -139,3 +110,5 @@ class PatientCreateResponse(BaseModel):
     username: str
 
     temporary_password: str
+
+    whatsapp_url: str
