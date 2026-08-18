@@ -77,3 +77,23 @@ class PatientRepository:
             )
             .all()
         )
+
+    def get_by_id_and_facility(
+        self,
+        db: Session,
+        patient_id: int,
+        facility_id: int,
+    ):
+        return (
+            db.query(Patient)
+            .join(
+                User,
+                Patient.user_id == User.id,
+            )
+            .filter(
+                Patient.id == patient_id,
+                User.facility_id == facility_id,
+                Patient.is_active.is_(True),
+            )
+            .first()
+        )

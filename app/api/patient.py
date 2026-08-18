@@ -102,6 +102,7 @@ def get_patient_by_id(
     return service.get_by_id(
         db,
         patient_id,
+        current_user,
     )
 
 

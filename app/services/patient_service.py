@@ -200,13 +200,24 @@ class PatientService:
     # GET BY ID
     # =====================================================
 
-    def get_by_id(self, db: Session, patient_id: int):
+    def get_by_id(
+        self,
+        db: Session,
+        patient_id: int,
+        current_user: User,
+    ):
 
-        patient = self.patient_repository.get_by_id(db, patient_id)
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
+        )
 
         if patient is None:
-
-            raise HTTPException(status_code=404, detail="Patient not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found",
+            )
 
         return patient
 
