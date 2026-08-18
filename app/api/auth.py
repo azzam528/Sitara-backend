@@ -14,6 +14,7 @@ from app.schemas.user import (
     UserLogin,
     TokenResponse,
     ChangePasswordRequest,
+    ChangeUsernameRequest,
     NakesCreate,
     UserResponse,
 )
@@ -89,6 +90,25 @@ def change_password(
         db,
         current_user,
         password_data,
+    )
+
+
+# =====================================================
+# CHANGE USERNAME
+# =====================================================
+
+
+@router.put("/change-username")
+def change_username(
+    username_data: ChangeUsernameRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    return service.change_username(
+        db,
+        current_user,
+        username_data.new_username,
     )
 
 

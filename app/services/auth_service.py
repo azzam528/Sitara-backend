@@ -5,6 +5,7 @@ from app.schemas.user import (
     UserRegister,
     UserLogin,
     ChangePasswordRequest,
+    ChangeUsernameRequest,
     NakesCreate,
 )
 from app.models.user import User
@@ -177,6 +178,10 @@ class AuthService:
     # CHANGE PASSWORD
     # =====================================================
 
+    # =====================================================
+    # CHANGE PASSWORD
+    # =====================================================
+
     def change_password(
         self,
         db: Session,
@@ -184,15 +189,111 @@ class AuthService:
         password_data: ChangePasswordRequest,
     ):
 
+        # ================================================
+        # VERIFY CURRENT PASSWORD
+        # ================================================
+
+        if not verify_password(
+            password_data.current_password,
+            current_user.password_hash,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password saat ini salah.",
+            )
+
+        # ================================================
+        # PREVENT SAME PASSWORD
+        # ================================================
+
+        if verify_password(
+            password_data.new_password,
+            current_user.password_hash,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password baru tidak boleh sama dengan password lama.",
+            )
+
+        # ================================================
+        # UPDATE PASSWORD
+        # ================================================
+
         current_user.password_hash = hash_password(password_data.new_password)
 
         current_user.must_change_password = False
 
-        db.commit()
-
-        db.refresh(current_user)
+        self.user_repository.update(
+            db,
+            current_user,
+        )
 
         return {
             "message": "Password berhasil diubah.",
             "must_change_password": False,
+        }
+
+        # =====================================================
+
+    # CHANGE USERNAME
+    # =====================================================
+
+    def change_username(
+        self,
+        db: Session,
+        current_user: User,
+        new_username: str,
+    ):
+
+        new_username = new_username.strip()
+
+        # ================================================
+        # VALIDATE EMPTY
+        # ================================================
+
+        if not new_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username tidak boleh kosong.",
+            )
+
+        # ================================================
+        # SAME USERNAME
+        # ================================================
+
+        if new_username == current_user.username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username baru sama dengan username saat ini.",
+            )
+
+        # ================================================
+        # CHECK UNIQUE
+        # ================================================
+
+        existing_user = self.user_repository.get_by_username(
+            db,
+            new_username,
+        )
+
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username sudah digunakan.",
+            )
+
+        # ================================================
+        # UPDATE
+        # ================================================
+
+        current_user.username = new_username
+
+        self.user_repository.update(
+            db,
+            current_user,
+        )
+
+        return {
+            "message": "Username berhasil diubah.",
+            "username": current_user.username,
         }
