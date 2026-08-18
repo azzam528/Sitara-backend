@@ -67,7 +67,9 @@ class PatientService:
     # CREATE PATIENT
     # =====================================================
 
-    def create_patient(self, db: Session, patient_data: PatientCreate):
+    def create_patient(
+        self, db: Session, patient_data: PatientCreate, current_user: User
+    ):
 
         # -------------------------------------------------
         # Normalize WhatsApp
@@ -133,6 +135,7 @@ class PatientService:
             email=None,
             password_hash=hash_password(temporary_password),
             role="patient",
+            facility_id=current_user.facility_id,
             must_change_password=True,
             is_active=True,
         )
