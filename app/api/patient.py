@@ -36,6 +36,7 @@ def create_patient(
     return service.create_patient(
         db,
         patient,
+        current_user,
     )
 
 
@@ -43,6 +44,16 @@ def create_patient(
     "",
     response_model=list[PatientResponse],
 )
+def get_all_patients(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.get_all(
+        db,
+        current_user,
+    )
+
+
 def get_all_patients(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),

@@ -30,9 +30,15 @@ class PatientService:
     # GET ALL
     # =====================================================
 
-    def get_all(self, db: Session):
-
-        return self.patient_repository.get_all(db)
+    def get_all(
+        self,
+        db: Session,
+        current_user: User,
+    ):
+        return self.patient_repository.get_all_by_facility(
+            db,
+            current_user.facility_id,
+        )
 
     # =====================================================
     # GENERATE PASSWORD
