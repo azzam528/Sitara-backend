@@ -8,3 +8,4 @@ from .complaint import Complaint
 from .refill_request import RefillRequest
 from .control_schedule import ControlSchedule
 from .notification import Notification
+from .health_facility import HealthFacility

@@ -1,14 +1,25 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Boolean, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    String,
+    Boolean,
+    DateTime,
+    ForeignKey,
+)
+
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.patient import Patient
     from app.models.notification import Notification
+    from app.models.health_facility import HealthFacility
 
 
 class User(Base):
@@ -26,6 +37,20 @@ class User(Base):
 
     role: Mapped[str] = mapped_column(String(30), nullable=False)
 
+    # =====================================================
+    # HEALTH FACILITY
+    # =====================================================
+
+    # Sementara nullable=True karena database sudah
+    # memiliki user lama.
+    # Setelah migration + data existing selesai,
+    # akan kita ubah menjadi nullable=False.
+
+    facility_id: Mapped[int | None] = mapped_column(
+        ForeignKey("health_facilities.id"),
+        nullable=False,
+    )
+
     must_change_password: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -40,6 +65,15 @@ class User(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    # =====================================================
+    # RELATIONSHIPS
+    # =====================================================
+
     patient: Mapped["Patient"] = relationship(back_populates="user", uselist=False)
 
     notifications: Mapped[list["Notification"]] = relationship(back_populates="user")
+
+    facility: Mapped["HealthFacility"] = relationship(
+        "HealthFacility",
+        back_populates="users",
+    )
