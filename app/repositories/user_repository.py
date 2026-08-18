@@ -51,3 +51,17 @@ class UserRepository:
             )
             .all()
         )
+
+    def get_nakes_by_id(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(User)
+            .filter(
+                User.id == user_id,
+                User.role == "nakes",
+            )
+            .first()
+        )

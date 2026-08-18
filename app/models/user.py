@@ -48,7 +48,7 @@ class User(Base):
 
     facility_id: Mapped[int | None] = mapped_column(
         ForeignKey("health_facilities.id"),
-        nullable=False,
+        nullable=True,
     )
 
     must_change_password: Mapped[bool] = mapped_column(

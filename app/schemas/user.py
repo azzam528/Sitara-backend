@@ -6,6 +6,7 @@ class UserRegister(BaseModel):
     email: str | None = None
     password: str
     role: str
+    facility_id: int | None = None
 
 
 class UserLogin(BaseModel):
@@ -35,3 +36,13 @@ class UserResponse(BaseModel):
     must_change_password: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NakesCreate(BaseModel):
+    username: str
+    email: str | None = None
+    password: str = Field(
+        min_length=8,
+        max_length=72,
+    )
+    facility_id: int

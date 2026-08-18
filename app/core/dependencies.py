@@ -27,27 +27,21 @@ def get_current_user(
 
     if payload is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     user_id = payload.get("sub")
 
     if user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
-    user = user_repository.get_by_id(
-        db,
-        int(user_id)
-    )
+    user = user_repository.get_by_id(db, int(user_id))
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
 
     return user
@@ -57,6 +51,7 @@ def get_current_user(
 # Role Based Access Control
 # ============================
 
+
 def require_nakes(
     current_user: User = Depends(get_current_user),
 ):
@@ -64,7 +59,7 @@ def require_nakes(
     if current_user.role != "nakes":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only nakes can access this endpoint"
+            detail="Only nakes can access this endpoint",
         )
 
     return current_user
@@ -77,10 +72,11 @@ def require_patient(
     if current_user.role != "patient":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only patient can access this endpoint"
+            detail="Only patient can access this endpoint",
         )
 
     return current_user
+
 
 def require_nakes_or_patient(
     current_user: User = Depends(get_current_user),
@@ -88,7 +84,19 @@ def require_nakes_or_patient(
     if current_user.role not in ["nakes", "patient"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only nakes or patient can access this endpoint"
+            detail="Only nakes or patient can access this endpoint",
+        )
+
+    return current_user
+
+
+def require_admin(
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can access this endpoint",
         )
 
     return current_user

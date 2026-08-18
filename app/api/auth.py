@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import (
+    get_current_user,
+    require_admin,
+)
 
 from app.models.user import User
 
@@ -11,6 +14,8 @@ from app.schemas.user import (
     UserLogin,
     TokenResponse,
     ChangePasswordRequest,
+    NakesCreate,
+    UserResponse,
 )
 
 from app.services.auth_service import AuthService
@@ -84,4 +89,19 @@ def change_password(
         db,
         current_user,
         password_data,
+    )
+
+
+@router.post(
+    "/nakes",
+    response_model=UserResponse,
+)
+def create_nakes(
+    nakes: NakesCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    return service.create_nakes(
+        db,
+        nakes,
     )
