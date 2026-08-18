@@ -3,6 +3,7 @@ from datetime import date, datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.user import User
 from app.models.patient import Patient
 from app.models.treatment import Treatment, TreatmentStatus
 from app.models.control_schedule import (
@@ -18,6 +19,7 @@ class PatientDetailService:
         self,
         db: Session,
         patient_id: int,
+        facility_id: int,
     ):
 
         # ==========================================
@@ -26,8 +28,14 @@ class PatientDetailService:
 
         patient = (
             db.query(Patient)
+            .join(
+                User,
+                Patient.user_id == User.id,
+            )
             .filter(
-                Patient.id == patient_id
+                Patient.id == patient_id,
+                User.facility_id == facility_id,
+                Patient.is_active.is_(True),
             )
             .first()
         )
@@ -48,9 +56,7 @@ class PatientDetailService:
                 Treatment.patient_id == patient_id,
                 Treatment.status == TreatmentStatus.ACTIVE,
             )
-            .order_by(
-                Treatment.created_at.desc()
-            )
+            .order_by(Treatment.created_at.desc())
             .first()
         )
 
@@ -60,12 +66,8 @@ class PatientDetailService:
 
             treatment = (
                 db.query(Treatment)
-                .filter(
-                    Treatment.patient_id == patient_id
-                )
-                .order_by(
-                    Treatment.created_at.desc()
-                )
+                .filter(Treatment.patient_id == patient_id)
+                .order_by(Treatment.created_at.desc())
                 .first()
             )
 
@@ -81,8 +83,7 @@ class PatientDetailService:
                 db.query(ControlSchedule)
                 .filter(
                     ControlSchedule.treatment_id == treatment.id,
-                    ControlSchedule.status
-                    == ControlScheduleStatus.PENDING,
+                    ControlSchedule.status == ControlScheduleStatus.PENDING,
                     ControlSchedule.is_active == True,
                 )
                 .order_by(
@@ -116,13 +117,10 @@ class PatientDetailService:
             refills = (
                 db.query(RefillRequest)
                 .filter(
-                    RefillRequest.treatment_id
-                    == treatment.id,
+                    RefillRequest.treatment_id == treatment.id,
                     RefillRequest.is_active == True,
                 )
-                .order_by(
-                    RefillRequest.created_at.desc()
-                )
+                .order_by(RefillRequest.created_at.desc())
                 .all()
             )
 

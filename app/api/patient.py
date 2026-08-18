@@ -87,6 +87,7 @@ def get_patient_detail(
     return detail_service.get_detail(
         db,
         patient_id,
+        current_user.facility_id,
     )
 
 
@@ -120,6 +121,7 @@ def update_patient(
         db,
         patient_id,
         patient_data,
+        current_user,
     )
 
 
@@ -127,6 +129,18 @@ def update_patient(
     "/{patient_id}",
     response_model=PatientResponse,
 )
+def delete_patient(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.delete_patient(
+        db,
+        patient_id,
+        current_user,
+    )
+
+
 def delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
