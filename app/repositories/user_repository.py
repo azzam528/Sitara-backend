@@ -32,6 +32,16 @@ class UserRepository:
 
         return user
 
+    def update(
+        self,
+        db: Session,
+        user: User,
+    ):
+        db.commit()
+        db.refresh(user)
+
+        return user
+
     def get_by_id(
         self,
         db: Session,

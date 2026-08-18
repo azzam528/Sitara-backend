@@ -27,6 +27,13 @@ class ChangePasswordRequest(BaseModel):
     )
 
 
+class ChangeUsernameRequest(BaseModel):
+    new_username: str = Field(
+        min_length=3,
+        max_length=100,
+    )
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
