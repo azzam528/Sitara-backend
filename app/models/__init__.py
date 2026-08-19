@@ -10,4 +10,25 @@ from .control_schedule import ControlSchedule
 from .notification import Notification
 from .health_facility import HealthFacility
 from .activation_token import ActivationToken
+from .face_embedding import FaceEmbedding
+from .face_verification import FaceVerification, FaceVerificationStatus
+
+__all__ = [
+    "User",
+    "Patient",
+    "Treatment",
+    "Medicine",
+    "MedicineSchedule",
+    "VideoVerification",
+    "Complaint",
+    "RefillRequest",
+    "ControlSchedule",
+    "Notification",
+    "HealthFacility",
+    "ActivationToken",
+    "FaceEmbedding",
+    "FaceVerification",
+    "FaceVerificationStatus",
+]
+
 

@@ -1,11 +1,7 @@
 from datetime import datetime, date
 from enum import Enum
 from typing import TYPE_CHECKING
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.models.treatment import Treatment
-    
 from sqlalchemy import (
     String,
     Boolean,
@@ -25,6 +21,9 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.treatment import Treatment
+    from app.models.face_embedding import FaceEmbedding
+    from app.models.face_verification import FaceVerification
 
 
 class GenderEnum(str, Enum):
@@ -90,16 +89,6 @@ class Patient(Base):
         nullable=False,
     )
 
-    # diagnosis_date: Mapped[date] = mapped_column(
-    #     Date,
-    #     nullable=False,
-    # )
-
-    # therapy_start_date: Mapped[date] = mapped_column(
-    #     Date,
-    #     nullable=False,
-    # )
-
     pmo_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -130,8 +119,17 @@ class Patient(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-    
-    
+
     treatments: Mapped[list["Treatment"]] = relationship(
-    back_populates="patient"
-)
+        back_populates="patient"
+    )
+
+    face_embeddings: Mapped[list["FaceEmbedding"]] = relationship(
+        back_populates="patient",
+        cascade="all, delete-orphan",
+    )
+
+    face_verifications: Mapped[list["FaceVerification"]] = relationship(
+        back_populates="patient",
+        cascade="all, delete-orphan",
+    )

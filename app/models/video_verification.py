@@ -1,5 +1,6 @@
 from datetime import datetime, date
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -19,6 +20,9 @@ from sqlalchemy.orm import (
 
 from app.core.database import Base
 
+if TYPE_CHECKING:
+    from app.models.face_verification import FaceVerification
+
 
 class VerificationStatus(str, Enum):
     PENDING = "pending"
@@ -37,6 +41,12 @@ class VideoVerification(Base):
     medicine_schedule_id: Mapped[int] = mapped_column(
         ForeignKey("medicine_schedules.id"),
         nullable=False,
+    )
+
+    face_verification_id: Mapped[int | None] = mapped_column(
+        ForeignKey("face_verifications.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     verification_date: Mapped[date] = mapped_column(
@@ -104,5 +114,11 @@ class VideoVerification(Base):
         "MedicineSchedule",
         back_populates="video_verifications",
     )
+
+    face_verification: Mapped["FaceVerification | None"] = relationship(
+        "FaceVerification",
+        back_populates="video_verifications",
+    )
+
     
     

@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -16,12 +17,12 @@ from sqlalchemy.orm import (
 )
 
 from app.core.database import Base
-from app.models.video_verification import VideoVerification
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.models.treatment import Treatment
+    from app.models.medicine import Medicine
     from app.models.video_verification import VideoVerification
+    from app.models.face_verification import FaceVerification
 
 class MedicineSchedule(Base):
 
@@ -62,10 +63,10 @@ class MedicineSchedule(Base):
     )
 
     is_active: Mapped[bool] = mapped_column(
-            Boolean,
-            default=True,
+        Boolean,
+        default=True,
     )
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -76,7 +77,7 @@ class MedicineSchedule(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-    
+
     treatment = relationship(
         "Treatment",
         back_populates="medicine_schedules",
@@ -86,7 +87,12 @@ class MedicineSchedule(Base):
         "Medicine",
         back_populates="medicine_schedules",
     )
-    
+
     video_verifications: Mapped[list["VideoVerification"]] = relationship(
         back_populates="medicine_schedule",
     )
+
+    face_verifications: Mapped[list["FaceVerification"]] = relationship(
+        back_populates="medicine_schedule",
+        cascade="all, delete-orphan",
+    )
