@@ -15,6 +15,8 @@ from app.schemas.user import (
     TokenResponse,
     ChangePasswordRequest,
     ChangeUsernameRequest,
+    ActivateAccountRequest,
+    ActivationResponse,
     NakesCreate,
     UserResponse,
 )
@@ -53,6 +55,25 @@ def login(
 
     return service.login(db, user)
 
+
+# =====================================================
+# ACTIVATE ACCOUNT
+# =====================================================
+
+
+@router.post(
+    "/activate",
+    response_model=ActivationResponse,
+)
+def activate_account(
+    activation_data: ActivateAccountRequest,
+    db: Session = Depends(get_db),
+):
+
+    return service.activate_account(
+        db,
+        activation_data,
+    )
 
 # =====================================================
 # PROFILE

@@ -58,3 +58,20 @@ class NakesCreate(BaseModel):
         max_length=72,
     )
     facility_id: int
+    
+class ActivateAccountRequest(BaseModel):
+
+    token: str = Field(
+        min_length=32,
+        max_length=255,
+    )
+
+    new_password: str = Field(
+        min_length=8,
+        max_length=72,
+    )    
+
+class ActivationResponse(BaseModel):
+
+    message: str
+    username: str

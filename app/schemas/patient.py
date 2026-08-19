@@ -109,6 +109,6 @@ class PatientCreateResponse(BaseModel):
 
     username: str
 
-    temporary_password: str
+    activation_url: str
 
     whatsapp_url: str

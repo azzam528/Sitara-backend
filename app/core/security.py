@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-
+import hashlib
+import secrets
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -69,3 +70,13 @@ def verify_access_token(token: str):
     except JWTError:
 
         return None
+
+
+def generate_activation_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_activation_token(token: str) -> str:
+    return hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()

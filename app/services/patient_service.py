@@ -1,21 +1,33 @@
 import secrets
 import string
+from datetime import datetime, timedelta
 from urllib.parse import quote
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.models.patient import Patient
+from app.models.activation_token import ActivationToken
 
 from app.repositories.user_repository import UserRepository
 from app.repositories.patient_repository import PatientRepository
+from app.repositories.activation_token_repository import (
+    ActivationTokenRepository,
+)
 
 from app.schemas.patient import (
     PatientCreate,
     PatientUpdate,
 )
 
-from app.core.security import hash_password
+from app.core.config import settings
+
+from app.core.security import (
+    hash_password,
+    generate_activation_token,
+    hash_activation_token,
+)
 
 
 class PatientService:
@@ -25,6 +37,10 @@ class PatientService:
         self.user_repository = UserRepository()
 
         self.patient_repository = PatientRepository()
+
+        self.activation_token_repository = (
+            ActivationTokenRepository()
+        )
 
     # =====================================================
     # GET ALL
@@ -48,7 +64,10 @@ class PatientService:
 
         characters = string.ascii_letters + string.digits
 
-        return "".join(secrets.choice(characters) for _ in range(length))
+        return "".join(
+            secrets.choice(characters)
+            for _ in range(length)
+        )
 
     # =====================================================
     # GENERATE USERNAME
@@ -56,7 +75,12 @@ class PatientService:
 
     def _normalize_phone(self, phone: str) -> str:
 
-        phone = phone.strip().replace(" ", "").replace("-", "")
+        phone = (
+            phone
+            .strip()
+            .replace(" ", "")
+            .replace("-", "")
+        )
 
         if phone.startswith("+62"):
             phone = "62" + phone[3:]
@@ -74,55 +98,80 @@ class PatientService:
     # =====================================================
 
     def create_patient(
-        self, db: Session, patient_data: PatientCreate, current_user: User
+        self,
+        db: Session,
+        patient_data: PatientCreate,
+        current_user: User,
     ):
 
         # -------------------------------------------------
         # Normalize WhatsApp
         # -------------------------------------------------
 
-        phone = self._normalize_phone(patient_data.phone)
+        phone = self._normalize_phone(
+            patient_data.phone
+        )
 
         # -------------------------------------------------
         # Check NIK
         # -------------------------------------------------
 
-        existing_nik = self.patient_repository.get_by_nik(db, patient_data.nik)
+        existing_nik = (
+            self.patient_repository.get_by_nik(
+                db,
+                patient_data.nik,
+            )
+        )
 
         if existing_nik:
-
-            raise HTTPException(status_code=400, detail="NIK already exists")
+            raise HTTPException(
+                status_code=400,
+                detail="NIK already exists",
+            )
 
         # -------------------------------------------------
         # Check Medical Record
         # -------------------------------------------------
 
-        existing_mrn = self.patient_repository.get_by_medical_record_number(
-            db, patient_data.medical_record_number
+        existing_mrn = (
+            self.patient_repository
+            .get_by_medical_record_number(
+                db,
+                patient_data.medical_record_number,
+            )
         )
 
         if existing_mrn:
-
             raise HTTPException(
-                status_code=400, detail="Medical record number already exists"
+                status_code=400,
+                detail="Medical record number already exists",
             )
 
         # -------------------------------------------------
         # Check username / WhatsApp
         # -------------------------------------------------
 
-        existing_user = self.user_repository.get_by_username(db, phone)
+        existing_user = (
+            self.user_repository
+            .get_by_username(
+                db,
+                phone,
+            )
+        )
 
         if existing_user:
-
             raise HTTPException(
                 status_code=400,
-                detail=("Nomor WhatsApp sudah " "terdaftar sebagai akun."),
+                detail="Nomor WhatsApp sudah terdaftar sebagai akun.",
             )
 
         # -------------------------------------------------
         # Generate temporary password
         # -------------------------------------------------
+        # Password ini hanya sebagai password internal.
+        # Tidak dikirim ke pasien.
+        # Pasien akan membuat password sendiri
+        # melalui activation link.
 
         temporary_password = self._generate_password()
 
@@ -139,14 +188,19 @@ class PatientService:
         user = User(
             username=username,
             email=None,
-            password_hash=hash_password(temporary_password),
+            password_hash=hash_password(
+                temporary_password
+            ),
             role="patient",
             facility_id=current_user.facility_id,
             must_change_password=True,
             is_active=True,
         )
 
-        user = self.user_repository.create(db, user)
+        user = self.user_repository.create(
+            db,
+            user,
+        )
 
         # -------------------------------------------------
         # Create Patient
@@ -154,20 +208,58 @@ class PatientService:
 
         patient = Patient(
             user_id=user.id,
-            medical_record_number=(patient_data.medical_record_number),
-            full_name=(patient_data.full_name),
-            nik=(patient_data.nik),
-            birth_date=(patient_data.birth_date),
-            gender=(patient_data.gender),
+            medical_record_number=(
+                patient_data.medical_record_number
+            ),
+            full_name=patient_data.full_name,
+            nik=patient_data.nik,
+            birth_date=patient_data.birth_date,
+            gender=patient_data.gender,
             phone=phone,
-            address=(patient_data.address),
-            occupation=(patient_data.occupation),
-            pmo_name=(patient_data.pmo_name),
-            pmo_phone=(patient_data.pmo_phone),
-            clinical_note=(patient_data.clinical_note),
+            address=patient_data.address,
+            occupation=patient_data.occupation,
+            pmo_name=patient_data.pmo_name,
+            pmo_phone=patient_data.pmo_phone,
+            clinical_note=patient_data.clinical_note,
         )
 
-        patient = self.patient_repository.create(db, patient)
+        patient = self.patient_repository.create(
+            db,
+            patient,
+        )
+
+        # -------------------------------------------------
+        # Generate Activation Token
+        # -------------------------------------------------
+
+        raw_token = generate_activation_token()
+
+        token_hash = hash_activation_token(
+            raw_token
+        )
+
+        activation_token = ActivationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=(
+                datetime.utcnow()
+                + timedelta(hours=24)
+            ),
+        )
+
+        self.activation_token_repository.create(
+            db,
+            activation_token,
+        )
+
+        # -------------------------------------------------
+        # Generate Activation URL
+        # -------------------------------------------------
+
+        activation_url = (
+            f"{settings.FRONTEND_BASE_URL}"
+            f"/activate?token={raw_token}"
+        )
 
         # -------------------------------------------------
         # WhatsApp Message
@@ -176,14 +268,18 @@ class PatientService:
         message = (
             f"Halo {patient.full_name},\n\n"
             f"Akun SITARA Anda telah dibuat.\n\n"
-            f"Username: {username}\n"
-            f"Password sementara: {temporary_password}\n\n"
-            f"Silakan login menggunakan akun tersebut "
-            f"dan segera ganti password Anda.\n\n"
+            f"Username: {username}\n\n"
+            f"Silakan aktivasi akun dan buat password "
+            f"Anda melalui link berikut:\n\n"
+            f"{activation_url}\n\n"
+            f"Link aktivasi berlaku selama 24 jam.\n\n"
             f"Terima kasih."
         )
 
-        whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
+        whatsapp_url = (
+            f"https://wa.me/{phone}"
+            f"?text={quote(message)}"
+        )
 
         # -------------------------------------------------
         # Return
@@ -192,7 +288,7 @@ class PatientService:
         return {
             "patient": patient,
             "username": username,
-            "temporary_password": (temporary_password),
+            "activation_url": activation_url,
             "whatsapp_url": whatsapp_url,
         }
 
@@ -207,10 +303,13 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = self.patient_repository.get_by_id_and_facility(
-            db,
-            patient_id,
-            current_user.facility_id,
+        patient = (
+            self.patient_repository
+            .get_by_id_and_facility(
+                db,
+                patient_id,
+                current_user.facility_id,
+            )
         )
 
         if patient is None:
@@ -233,23 +332,32 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = self.patient_repository.get_by_id_and_facility(
-            db,
-            patient_id,
-            current_user.facility_id,
+        patient = (
+            self.patient_repository
+            .get_by_id_and_facility(
+                db,
+                patient_id,
+                current_user.facility_id,
+            )
         )
 
         if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found",
+            )
 
-            raise HTTPException(status_code=404, detail="Patient not found")
-
-        update_data = patient_data.model_dump(exclude_unset=True)
+        update_data = patient_data.model_dump(
+            exclude_unset=True
+        )
 
         for key, value in update_data.items():
-
             setattr(patient, key, value)
 
-        return self.patient_repository.update(db, patient)
+        return self.patient_repository.update(
+            db,
+            patient,
+        )
 
     # =====================================================
     # DELETE
@@ -262,27 +370,48 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = self.patient_repository.get_by_id_and_facility(
-            db,
-            patient_id,
-            current_user.facility_id,
+        patient = (
+            self.patient_repository
+            .get_by_id_and_facility(
+                db,
+                patient_id,
+                current_user.facility_id,
+            )
         )
+
         if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found",
+            )
 
-            raise HTTPException(status_code=404, detail="Patient not found")
-
-        return self.patient_repository.delete(db, patient)
+        return self.patient_repository.delete(
+            db,
+            patient,
+        )
 
     # =====================================================
     # PATIENT PROFILE
     # =====================================================
 
-    def get_profile(self, db: Session, current_user: User):
+    def get_profile(
+        self,
+        db: Session,
+        current_user: User,
+    ):
 
-        patient = self.patient_repository.get_by_user_id(db, current_user.id)
+        patient = (
+            self.patient_repository
+            .get_by_user_id(
+                db,
+                current_user.id,
+            )
+        )
 
         if patient is None:
-
-            raise HTTPException(status_code=404, detail="Patient profile not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Patient profile not found",
+            )
 
         return patient

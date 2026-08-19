@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     # Masa berlaku access token (menit)
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+    
+    FRONTEND_BASE_URL: str
 
     class Config:
         """

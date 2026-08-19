@@ -1,21 +1,30 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.repositories.user_repository import UserRepository
+from app.repositories.activation_token_repository import (
+    ActivationTokenRepository,
+)
+
 from app.schemas.user import (
     UserRegister,
     UserLogin,
     ChangePasswordRequest,
     ChangeUsernameRequest,
+    ActivateAccountRequest,
     NakesCreate,
 )
+
 from app.models.user import User
 from app.models.health_facility import HealthFacility
+
 from fastapi import HTTPException, status
 
 from app.core.security import (
     hash_password,
     verify_password,
     create_access_token,
+    hash_activation_token,
 )
 
 
@@ -24,6 +33,10 @@ class AuthService:
     def __init__(self):
 
         self.user_repository = UserRepository()
+
+        self.activation_token_repository = (
+            ActivationTokenRepository()
+        )
 
     # =====================================================
     # REGISTER
@@ -175,8 +188,93 @@ class AuthService:
         }
 
     # =====================================================
-    # CHANGE PASSWORD
+    # ACTIVATE ACCOUNT
     # =====================================================
+
+    def activate_account(
+        self,
+        db: Session,
+        activation_data: ActivateAccountRequest,
+    ):
+
+        token_hash = hash_activation_token(
+            activation_data.token
+        )
+
+        activation_token = (
+            self.activation_token_repository
+            .get_by_token_hash(
+                db,
+                token_hash,
+            )
+        )
+
+        if activation_token is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Link aktivasi tidak valid.",
+            )
+
+        if activation_token.used_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Link aktivasi sudah digunakan.",
+            )
+
+        if activation_token.expires_at <= datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=(
+                    "Link aktivasi sudah kedaluwarsa. "
+                    "Silakan hubungi petugas kesehatan "
+                    "untuk mendapatkan link baru."
+                ),
+            )
+
+        user = self.user_repository.get_by_id(
+            db,
+            activation_token.user_id,
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User tidak ditemukan.",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akun tidak aktif.",
+            )
+
+        if user.role != "patient":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Link aktivasi hanya untuk pasien.",
+            )
+
+        if not user.must_change_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Akun sudah diaktivasi.",
+            )
+
+        user.password_hash = hash_password(
+            activation_data.new_password
+        )
+
+        user.must_change_password = False
+
+        activation_token.used_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "message": "Akun berhasil diaktivasi.",
+            "username": user.username,
+        }
 
     # =====================================================
     # CHANGE PASSWORD

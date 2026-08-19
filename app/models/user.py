@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.models.patient import Patient
     from app.models.notification import Notification
     from app.models.health_facility import HealthFacility
+    from app.models.activation_token import ActivationToken
 
 
 class User(Base):
@@ -76,4 +77,10 @@ class User(Base):
     facility: Mapped["HealthFacility"] = relationship(
         "HealthFacility",
         back_populates="users",
+    )
+    
+    activation_tokens: Mapped[list["ActivationToken"]] = relationship(
+        "ActivationToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
