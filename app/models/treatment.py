@@ -55,9 +55,7 @@ class Treatment(Base):
         nullable=False,
     )
 
-    patient: Mapped["Patient"] = relationship(
-        back_populates="treatments"
-    )
+    patient: Mapped["Patient"] = relationship(back_populates="treatments")
 
     diagnosis_date: Mapped[date] = mapped_column(
         Date,
@@ -77,7 +75,7 @@ class Treatment(Base):
     medicine_schedules: Mapped[list["MedicineSchedule"]] = relationship(
         back_populates="treatment",
     )
-    
+
     phase: Mapped[TreatmentPhase] = mapped_column(
         SQLEnum(TreatmentPhase),
         nullable=False,
@@ -108,7 +106,7 @@ class Treatment(Base):
         Boolean,
         default=True,
     )
-        
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -119,15 +117,15 @@ class Treatment(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-    
+
     complaints: Mapped[list["Complaint"]] = relationship(
         back_populates="treatment",
     )
-    
+
     refill_requests: Mapped[list["RefillRequest"]] = relationship(
         back_populates="treatment",
     )
-    
+
     control_schedules: Mapped[list["ControlSchedule"]] = relationship(
         back_populates="treatment",
     )

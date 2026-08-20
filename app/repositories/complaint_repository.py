@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import Session, joinedload
+from app.models.treatment import Treatment
 from app.models.complaint import (
     Complaint,
     ComplaintStatus,
@@ -27,9 +28,9 @@ class ComplaintRepository:
         db: Session,
         complaint_id: int,
     ):
-
         return (
             db.query(Complaint)
+            .options(joinedload(Complaint.treatment).joinedload(Treatment.patient))
             .filter(
                 Complaint.id == complaint_id,
                 Complaint.is_active == True,
@@ -41,9 +42,9 @@ class ComplaintRepository:
         self,
         db: Session,
     ):
-
         return (
             db.query(Complaint)
+            .options(joinedload(Complaint.treatment).joinedload(Treatment.patient))
             .filter(
                 Complaint.is_active == True,
             )
@@ -69,9 +70,9 @@ class ComplaintRepository:
         self,
         db: Session,
     ):
-
         return (
             db.query(Complaint)
+            .options(joinedload(Complaint.treatment).joinedload(Treatment.patient))
             .filter(
                 Complaint.status == ComplaintStatus.PENDING,
                 Complaint.is_active == True,
