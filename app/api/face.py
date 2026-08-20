@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import require_patient
 from app.models.user import User
-from app.schemas.face import FaceRegisterResponse, FaceStatusResponse
+from app.schemas.face import FaceRegisterResponse, FaceStatusResponse, FaceVerifyResponse
 from app.services.face_service import FaceService
 
 router = APIRouter(prefix="/face", tags=["Face Recognition"])
@@ -29,6 +29,26 @@ def register_face(
     )
 
 
+@router.post(
+    "/verify",
+    response_model=FaceVerifyResponse,
+    summary="Verify patient face identity",
+    description="Verifies patient face identity against registered active embedding before AI-VOT medication intake session.",
+)
+def verify_face(
+    image: UploadFile = File(..., description="Foto wajah pasien (JPG/PNG/WEBP)"),
+    medicine_schedule_id: int = Form(..., description="ID Jadwal minum obat pasien"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.verify_face(
+        db=db,
+        current_user=current_user,
+        image=image,
+        medicine_schedule_id=medicine_schedule_id,
+    )
+
+
 @router.get(
     "/status",
     response_model=FaceStatusResponse,
@@ -43,3 +63,4 @@ def get_face_status(
         db=db,
         current_user=current_user,
     )
+

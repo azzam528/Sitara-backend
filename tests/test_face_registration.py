@@ -61,6 +61,8 @@ def setup_test_db():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
 
+
+
     # Create dummy health facility
     facility = HealthFacility(
         name="Puskesmas Uji Coba",
@@ -149,6 +151,7 @@ def setup_test_db():
     yield
 
     Base.metadata.drop_all(bind=engine)
+
 
 
 # Helper to get sample image bytes
