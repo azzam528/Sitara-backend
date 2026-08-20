@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.patient import Patient
-
+from sqlalchemy.orm import Session, joinedload
 from app.models.treatment import (
     Treatment,
     TreatmentStatus,
@@ -26,9 +26,9 @@ class TreatmentRepository:
         db: Session,
         treatment_id: int,
     ):
-
         return (
             db.query(Treatment)
+            .options(joinedload(Treatment.patient))
             .filter(
                 Treatment.id == treatment_id,
                 Treatment.is_active == True,
@@ -40,8 +40,12 @@ class TreatmentRepository:
         self,
         db: Session,
     ):
-
-        return db.query(Treatment).filter(Treatment.is_active == True).all()
+        return (
+            db.query(Treatment)
+            .options(joinedload(Treatment.patient))
+            .filter(Treatment.is_active == True)
+            .all()
+        )
 
     def get_by_patient_id(
         self,
