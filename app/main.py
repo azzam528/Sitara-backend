@@ -23,6 +23,9 @@ from app.api.notifications import (
 from app.api.dashboard import (
     router as dashboard_router,
 )
+from app.api.face import (
+    router as face_router,
+)
 
 
 app = FastAPI()
@@ -55,8 +58,9 @@ app.include_router(treatment_router)
 app.include_router(medicine_router)
 app.include_router(medicine_schedule_router)
 app.include_router(video_verification_router)
+app.include_router(face_router)
 app.include_router(complaint_router)
 app.include_router(refill_router)
 app.include_router(control_schedule_router)
 app.include_router(notification_router)
-app.include_router(dashboard_router)
+app.include_router(dashboard_router)
