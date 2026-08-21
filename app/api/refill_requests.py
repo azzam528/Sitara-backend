@@ -1,8 +1,4 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-)
-
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,11 +14,10 @@ from app.schemas.refill_request import (
     RefillCreate,
     RefillUpdate,
     RefillResponse,
+    RefillListResponse,
 )
 
-from app.services.refill_service import (
-    RefillService,
-)
+from app.services.refill_service import RefillService
 
 router = APIRouter(
     prefix="/refills",
@@ -33,7 +28,8 @@ service = RefillService()
 
 
 # =========================================================
-# NAKES
+# CREATE
+# NAKES + PATIENT
 # =========================================================
 
 
@@ -52,9 +48,15 @@ def create_refill(
         current_user,
     )
 
+
+# =========================================================
+# NAKES
+# =========================================================
+
+
 @router.get(
     "",
-    response_model=list[RefillResponse],
+    response_model=list[RefillListResponse],
 )
 def get_all_refills(
     db: Session = Depends(get_db),
@@ -63,49 +65,9 @@ def get_all_refills(
     return service.get_all(db)
 
 
-# =========================================================
-# PATIENT
-# =========================================================
-
-
-@router.get(
-    "/my",
-    response_model=list[RefillResponse],
-)
-def get_my_refills(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-    return service.get_my_refills(
-        db,
-        current_user.id,
-    )
-
-
-@router.post(
-    "/my",
-    response_model=RefillResponse,
-)
-def create_my_refill(
-    refill: RefillCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-    return service.create_my_refill(
-        db,
-        refill,
-        current_user.id,
-    )
-
-
-# =========================================================
-# NAKES
-# =========================================================
-
-
 @router.get(
     "/{refill_id}",
-    response_model=RefillResponse,
+    response_model=RefillListResponse,
 )
 def get_refill(
     refill_id: int,
@@ -148,4 +110,39 @@ def delete_refill(
     return service.delete_refill(
         db,
         refill_id,
+    )
+
+
+# =========================================================
+# PATIENT
+# =========================================================
+
+
+@router.get(
+    "/my",
+    response_model=list[RefillResponse],
+)
+def get_my_refills(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_refills(
+        db,
+        current_user.id,
+    )
+
+
+@router.post(
+    "/my",
+    response_model=RefillResponse,
+)
+def create_my_refill(
+    refill: RefillCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.create_refill(
+        db,
+        refill,
+        current_user,
     )
