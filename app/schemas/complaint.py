@@ -28,6 +28,8 @@ class PatientComplaintResponse(BaseModel):
     full_name: str
     nik: str
     medical_record_number: str
+    phone: str
+    address: str
 
     model_config = ConfigDict(from_attributes=True)
 
