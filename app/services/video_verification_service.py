@@ -35,6 +35,10 @@ from app.repositories.medicine_schedule_repository import (
     MedicineScheduleRepository,
 )
 
+from app.repositories.face_repository import (
+    FaceRepository,
+)
+
 from app.schemas.video_verification import (
     VideoVerificationCreate,
     VideoVerificationUpdate,
@@ -53,6 +57,10 @@ class VideoVerificationService:
 
         self.schedule_repository = (
             MedicineScheduleRepository()
+        )
+
+        self.face_repository = (
+            FaceRepository()
         )
 
         self.notification_service = (
@@ -132,12 +140,61 @@ class VideoVerificationService:
             )
 
         # -------------------------------------------------
+        # CHECK FACE VERIFICATION (IF PROVIDED)
+        # -------------------------------------------------
+
+        if data.face_verification_id is not None:
+            face_verification = (
+                self.face_repository.get_verification_by_id(
+                    db, data.face_verification_id
+                )
+            )
+
+            if not face_verification:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Face verification not found",
+                )
+
+            if face_verification.patient_id != patient.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Face verification does not belong "
+                        "to this patient"
+                    ),
+                )
+
+            if (
+                face_verification.medicine_schedule_id
+                != data.medicine_schedule_id
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Face verification is for a "
+                        "different medicine schedule"
+                    ),
+                )
+
+            if face_verification.status != "verified":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Face verification status must be verified"
+                    ),
+                )
+
+        # -------------------------------------------------
         # CREATE VIDEO
         # -------------------------------------------------
 
         video = VideoVerification(
             medicine_schedule_id=(
                 data.medicine_schedule_id
+            ),
+            face_verification_id=(
+                data.face_verification_id
             ),
             verification_date=(
                 data.verification_date
@@ -149,6 +206,7 @@ class VideoVerificationService:
             thumbnail_path=data.thumbnail_path,
             status=VerificationStatus.PENDING,
         )
+
 
         video = self.repository.create(
             db,

@@ -1,5 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError, DBAPIError
+
+from app.core.database import get_db
 
 from app.api.auth import router as auth_router
 from app.api.user import router as user_router
@@ -24,7 +30,7 @@ from app.api.dashboard import (
     router as dashboard_router,
 )
 
-app = FastAPI()
+app = FastAPI(title="SITARA API")
 
 
 # =========================
@@ -36,8 +42,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -56,6 +60,7 @@ app.include_router(treatment_router)
 app.include_router(medicine_router)
 app.include_router(medicine_schedule_router)
 app.include_router(video_verification_router)
+app.include_router(face_router)
 app.include_router(complaint_router)
 app.include_router(refill_router)
 app.include_router(control_schedule_router)

@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     
     FRONTEND_BASE_URL: str
 
+    # Face Recognition Configurations
+    FACE_MODEL_VERSION: str = "opencv_yunet_sface_v1"
+    FACE_SIMILARITY_THRESHOLD: float = 0.70
+    FACE_DETECTION_THRESHOLD: float = 0.60
+    FACE_MIN_SIZE: int = 40
+
     class Config:
         """
         Memberitahu Pydantic untuk membaca file .env
@@ -33,4 +39,4 @@ class Settings(BaseSettings):
 
 # Membuat object settings agar bisa digunakan
 # di seluruh project.
-settings = Settings()
+settings = Settings()

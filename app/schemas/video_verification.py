@@ -15,6 +15,8 @@ class VideoVerificationCreate(BaseModel):
 
     medicine_schedule_id: int
 
+    face_verification_id: int | None = None
+
     verification_date: date
 
     video_path: str
@@ -43,6 +45,8 @@ class VideoVerificationResponse(BaseModel):
 
     medicine_schedule_id: int
 
+    face_verification_id: int | None = None
+
     verification_date: date
 
     video_path: str
@@ -69,4 +73,4 @@ class VideoVerificationResponse(BaseModel):
 
     model_config = ConfigDict(
         from_attributes=True,
-    )
+    )
