@@ -37,10 +37,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,4 +60,12 @@ app.include_router(complaint_router)
 app.include_router(refill_router)
 app.include_router(control_schedule_router)
 app.include_router(notification_router)
-app.include_router(dashboard_router)
+app.include_router(dashboard_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    import traceback
+    traceback.print_exc()
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=500, content={"detail": f"SERVER ERROR: {str(exc)}"})

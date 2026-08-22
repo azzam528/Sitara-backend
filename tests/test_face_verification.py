@@ -123,6 +123,7 @@ def get_no_face_bytes() -> bytes:
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()

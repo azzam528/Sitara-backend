@@ -58,6 +58,8 @@ def create_test_token(user_id: int) -> str:
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
+    app.dependency_overrides[get_db] = override_get_db
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
 
