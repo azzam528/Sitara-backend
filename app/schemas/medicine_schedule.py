@@ -53,6 +53,7 @@ class MedicineScheduleResponse(BaseModel):
 
 
 class MyMedicineScheduleResponse(BaseModel):
+    id: int
     treatment_id: int
     medicine_id: int
     medicine_name: str
