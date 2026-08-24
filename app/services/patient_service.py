@@ -38,9 +38,7 @@ class PatientService:
 
         self.patient_repository = PatientRepository()
 
-        self.activation_token_repository = (
-            ActivationTokenRepository()
-        )
+        self.activation_token_repository = ActivationTokenRepository()
 
     # =====================================================
     # GET ALL
@@ -64,10 +62,7 @@ class PatientService:
 
         characters = string.ascii_letters + string.digits
 
-        return "".join(
-            secrets.choice(characters)
-            for _ in range(length)
-        )
+        return "".join(secrets.choice(characters) for _ in range(length))
 
     # =====================================================
     # GENERATE USERNAME
@@ -75,12 +70,7 @@ class PatientService:
 
     def _normalize_phone(self, phone: str) -> str:
 
-        phone = (
-            phone
-            .strip()
-            .replace(" ", "")
-            .replace("-", "")
-        )
+        phone = phone.strip().replace(" ", "").replace("-", "")
 
         if phone.startswith("+62"):
             phone = "62" + phone[3:]
@@ -108,19 +98,15 @@ class PatientService:
         # Normalize WhatsApp
         # -------------------------------------------------
 
-        phone = self._normalize_phone(
-            patient_data.phone
-        )
+        phone = self._normalize_phone(patient_data.phone)
 
         # -------------------------------------------------
         # Check NIK
         # -------------------------------------------------
 
-        existing_nik = (
-            self.patient_repository.get_by_nik(
-                db,
-                patient_data.nik,
-            )
+        existing_nik = self.patient_repository.get_by_nik(
+            db,
+            patient_data.nik,
         )
 
         if existing_nik:
@@ -133,12 +119,9 @@ class PatientService:
         # Check Medical Record
         # -------------------------------------------------
 
-        existing_mrn = (
-            self.patient_repository
-            .get_by_medical_record_number(
-                db,
-                patient_data.medical_record_number,
-            )
+        existing_mrn = self.patient_repository.get_by_medical_record_number(
+            db,
+            patient_data.medical_record_number,
         )
 
         if existing_mrn:
@@ -151,12 +134,9 @@ class PatientService:
         # Check username / WhatsApp
         # -------------------------------------------------
 
-        existing_user = (
-            self.user_repository
-            .get_by_username(
-                db,
-                phone,
-            )
+        existing_user = self.user_repository.get_by_username(
+            db,
+            phone,
         )
 
         if existing_user:
@@ -188,9 +168,7 @@ class PatientService:
         user = User(
             username=username,
             email=None,
-            password_hash=hash_password(
-                temporary_password
-            ),
+            password_hash=hash_password(temporary_password),
             role="patient",
             facility_id=current_user.facility_id,
             must_change_password=True,
@@ -208,9 +186,7 @@ class PatientService:
 
         patient = Patient(
             user_id=user.id,
-            medical_record_number=(
-                patient_data.medical_record_number
-            ),
+            medical_record_number=(patient_data.medical_record_number),
             full_name=patient_data.full_name,
             nik=patient_data.nik,
             birth_date=patient_data.birth_date,
@@ -234,17 +210,12 @@ class PatientService:
 
         raw_token = generate_activation_token()
 
-        token_hash = hash_activation_token(
-            raw_token
-        )
+        token_hash = hash_activation_token(raw_token)
 
         activation_token = ActivationToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=(
-                datetime.utcnow()
-                + timedelta(hours=24)
-            ),
+            expires_at=(datetime.utcnow() + timedelta(hours=24)),
         )
 
         self.activation_token_repository.create(
@@ -256,10 +227,7 @@ class PatientService:
         # Generate Activation URL
         # -------------------------------------------------
 
-        activation_url = (
-            f"{settings.FRONTEND_BASE_URL}"
-            f"/activate?token={raw_token}"
-        )
+        activation_url = f"sitara://activate?token={raw_token}"
 
         # -------------------------------------------------
         # WhatsApp Message
@@ -276,10 +244,7 @@ class PatientService:
             f"Terima kasih."
         )
 
-        whatsapp_url = (
-            f"https://wa.me/{phone}"
-            f"?text={quote(message)}"
-        )
+        whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
 
         # -------------------------------------------------
         # Return
@@ -303,13 +268,10 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = (
-            self.patient_repository
-            .get_by_id_and_facility(
-                db,
-                patient_id,
-                current_user.facility_id,
-            )
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
         )
 
         if patient is None:
@@ -332,13 +294,10 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = (
-            self.patient_repository
-            .get_by_id_and_facility(
-                db,
-                patient_id,
-                current_user.facility_id,
-            )
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
         )
 
         if patient is None:
@@ -347,9 +306,7 @@ class PatientService:
                 detail="Patient not found",
             )
 
-        update_data = patient_data.model_dump(
-            exclude_unset=True
-        )
+        update_data = patient_data.model_dump(exclude_unset=True)
 
         for key, value in update_data.items():
             setattr(patient, key, value)
@@ -370,13 +327,10 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = (
-            self.patient_repository
-            .get_by_id_and_facility(
-                db,
-                patient_id,
-                current_user.facility_id,
-            )
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
         )
 
         if patient is None:
@@ -400,12 +354,9 @@ class PatientService:
         current_user: User,
     ):
 
-        patient = (
-            self.patient_repository
-            .get_by_user_id(
-                db,
-                current_user.id,
-            )
+        patient = self.patient_repository.get_by_user_id(
+            db,
+            current_user.id,
         )
 
         if patient is None:
