@@ -3,13 +3,15 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    String,
     Boolean,
-    DateTime,
     Date,
-    Text,
+    DateTime,
     Enum as SQLEnum,
     ForeignKey,
+    Index,
+    String,
+    Text,
+    text,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -49,7 +51,6 @@ class Patient(Base):
 
     medical_record_number: Mapped[str] = mapped_column(
         String(20),
-        unique=True,
         nullable=False,
     )
 
@@ -60,7 +61,6 @@ class Patient(Base):
 
     nik: Mapped[str] = mapped_column(
         String(16),
-        unique=True,
         nullable=False,
     )
 
@@ -132,4 +132,21 @@ class Patient(Base):
     face_verifications: Mapped[list["FaceVerification"]] = relationship(
         back_populates="patient",
         cascade="all, delete-orphan",
-    )
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_patients_nik_active",
+            "nik",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
+        ),
+        Index(
+            "uq_patients_mrn_active",
+            "medical_record_number",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
+        ),
+    )

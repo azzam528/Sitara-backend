@@ -2,10 +2,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    String,
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
+    String,
+    text,
 )
 
 from sqlalchemy.orm import (
@@ -29,7 +31,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Email tidak wajib untuk akun pasien
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
@@ -83,4 +85,14 @@ class User(Base):
         "ActivationToken",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_users_username_active",
+            "username",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
+        ),
     )

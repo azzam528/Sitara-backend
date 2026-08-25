@@ -34,11 +34,25 @@ class PatientRepository:
 
     def get_by_nik(self, db: Session, nik: str) -> Patient | None:
 
-        return db.query(Patient).filter(Patient.nik == nik).first()
+        return (
+            db.query(Patient)
+            .filter(
+                Patient.nik == nik,
+                Patient.is_active.is_(True),
+            )
+            .one_or_none()
+        )
 
     def get_by_medical_record_number(self, db: Session, mrn: str) -> Patient | None:
 
-        return db.query(Patient).filter(Patient.medical_record_number == mrn).first()
+        return (
+            db.query(Patient)
+            .filter(
+                Patient.medical_record_number == mrn,
+                Patient.is_active.is_(True),
+            )
+            .one_or_none()
+        )
 
     def get_all(self, db: Session):
         return db.query(Patient).filter(Patient.is_active == True).all()
@@ -53,6 +67,11 @@ class PatientRepository:
     def delete(self, db: Session, patient: Patient):
 
         patient.is_active = False
+
+        user = db.query(User).filter(User.id == patient.user_id).first()
+
+        if user is not None:
+            user.is_active = False
 
         db.commit()
 

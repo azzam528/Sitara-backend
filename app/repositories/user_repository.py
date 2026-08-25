@@ -10,7 +10,26 @@ class UserRepository:
         db: Session,
         username: str,
     ):
-        return db.query(User).filter(User.username == username).first()
+        return (
+            db.query(User)
+            .filter(
+                User.username == username,
+                User.is_active.is_(True),
+            )
+            .one_or_none()
+        )
+
+    def get_by_username_including_inactive(
+        self,
+        db: Session,
+        username: str,
+    ):
+        return (
+            db.query(User)
+            .filter(User.username == username)
+            .order_by(User.id.asc())
+            .all()
+        )
 
     def get_by_email(
         self,
