@@ -142,6 +142,7 @@ class MedicineScheduleRepository:
 
         return [
             {
+                "id": schedule.id,
                 "treatment_id": schedule.treatment_id,
                 "medicine_id": schedule.medicine_id,
                 "medicine_name": medicine_name,

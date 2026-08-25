@@ -17,6 +17,7 @@ os.environ["SECRET_KEY"] = "testsecretkeyforphase3validation"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:5173"
+os.environ["ACTIVATION_BASE_URL"] = "https://activation.test.local"
 
 from app.core.database import Base, get_db
 from app.core.config import settings

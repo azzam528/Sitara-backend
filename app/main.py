@@ -7,6 +7,7 @@ from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError, DBAPI
 
 from app.core.database import get_db
 
+from app.api.activation import router as activation_router
 from app.api.auth import router as auth_router
 from app.api.user import router as user_router
 from app.api.patient import router as patient_router
@@ -53,6 +54,7 @@ app.add_middleware(
 # Routers
 # =========================
 
+app.include_router(activation_router)
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(patient_router)

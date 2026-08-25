@@ -83,6 +83,12 @@ class PatientService:
 
         return phone
 
+    def _build_activation_url(self, raw_token: str) -> str:
+
+        base_url = settings.ACTIVATION_BASE_URL.rstrip("/")
+
+        return f"{base_url}/activate?token={raw_token}"
+
     # =====================================================
     # CREATE PATIENT
     # =====================================================
@@ -99,9 +105,34 @@ class PatientService:
         # -------------------------------------------------
 
         phone = self._normalize_phone(patient_data.phone)
+        username = phone
 
         # -------------------------------------------------
-        # Check NIK
+        # Check active username / WhatsApp
+        # -------------------------------------------------
+
+        existing_user = self.user_repository.get_by_username(
+            db,
+            phone,
+        )
+
+        if existing_user is not None:
+
+            if existing_user.role != "patient":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Nomor WhatsApp sudah terdaftar " "sebagai akun non-pasien."
+                    ),
+                )
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nomor WhatsApp sudah terdaftar sebagai akun.",
+            )
+
+        # -------------------------------------------------
+        # Check active NIK
         # -------------------------------------------------
 
         existing_nik = self.patient_repository.get_by_nik(
@@ -116,7 +147,7 @@ class PatientService:
             )
 
         # -------------------------------------------------
-        # Check Medical Record
+        # Check active Medical Record
         # -------------------------------------------------
 
         existing_mrn = self.patient_repository.get_by_medical_record_number(
@@ -131,21 +162,6 @@ class PatientService:
             )
 
         # -------------------------------------------------
-        # Check username / WhatsApp
-        # -------------------------------------------------
-
-        existing_user = self.user_repository.get_by_username(
-            db,
-            phone,
-        )
-
-        if existing_user:
-            raise HTTPException(
-                status_code=400,
-                detail="Nomor WhatsApp sudah terdaftar sebagai akun.",
-            )
-
-        # -------------------------------------------------
         # Generate temporary password
         # -------------------------------------------------
         # Password ini hanya sebagai password internal.
@@ -154,12 +170,6 @@ class PatientService:
         # melalui activation link.
 
         temporary_password = self._generate_password()
-
-        # -------------------------------------------------
-        # Username = WhatsApp
-        # -------------------------------------------------
-
-        username = phone
 
         # -------------------------------------------------
         # Create User
@@ -227,7 +237,7 @@ class PatientService:
         # Generate Activation URL
         # -------------------------------------------------
 
-        activation_url = f"sitara://activate?token={raw_token}"
+        activation_url = self._build_activation_url(raw_token)
 
         # -------------------------------------------------
         # WhatsApp Message
