@@ -13,4 +13,5 @@ email-validator
 httpx
 pytest
 numpy
-opencv-python-headless
+opencv-python-headless
+ultralytics
