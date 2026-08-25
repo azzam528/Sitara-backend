@@ -79,5 +79,55 @@ class MedicineDetectionService:
 
         return detections
 
+    def detect_expected_medicine(
+        self,
+        image_bytes: bytes,
+        expected_medicine: str,
+    ):
+        detections = self.detect(image_bytes)
+
+        if not detections:
+            return {
+                "status": "MEDICINE_NOT_DETECTED",
+                "expected_medicine": expected_medicine,
+                "detected_medicine": None,
+                "confidence": 0.0,
+                "bounding_box": None,
+                "medicine_match": False,
+                "message": "Obat belum terdeteksi.",
+            }
+
+        # Ambil detection dengan confidence tertinggi
+        best_detection = max(
+            detections,
+            key=lambda detection: detection["confidence"],
+        )
+
+        detected_medicine = best_detection["medicine"]
+        confidence = best_detection["confidence"]
+        bounding_box = best_detection["bounding_box"]
+
+        # Case-insensitive comparison
+        medicine_match = (
+            detected_medicine.strip().lower() == expected_medicine.strip().lower()
+        )
+
+        if medicine_match:
+            status = "MEDICINE_MATCHED"
+            message = "Obat sesuai dengan jadwal."
+        else:
+            status = "MEDICINE_MISMATCH"
+            message = "Obat yang terdeteksi tidak sesuai " "dengan jadwal obat."
+
+        return {
+            "status": status,
+            "expected_medicine": expected_medicine,
+            "detected_medicine": detected_medicine,
+            "confidence": confidence,
+            "bounding_box": bounding_box,
+            "medicine_match": medicine_match,
+            "message": message,
+        }
+
 
 medicine_detection_service = MedicineDetectionService()
