@@ -126,19 +126,35 @@ class ComplaintService:
                 db,
             )
 
+            patient_name = (
+                patient.full_name.strip()
+                if (patient and patient.full_name and patient.full_name.strip())
+                else (
+                    treatment.patient.full_name.strip()
+                    if (treatment and treatment.patient and treatment.patient.full_name and treatment.patient.full_name.strip())
+                    else ""
+                )
+            )
+
+            message = (
+                f"Pasien {patient_name} mengirim complaint baru."
+                if patient_name
+                else "Pasien mengirim complaint baru."
+            )
+
             for nakes in nakes_list:
 
                 self.notification_service.create(
                     db=db,
                     user_id=nakes.id,
                     title="Complaint Baru",
-                    message="Pasien mengirim complaint baru.",
+                    message=message,
                     notification_type=NotificationType.COMPLAINT,
                     reference_type=NotificationReferenceType.COMPLAINT,
                     reference_id=complaint.id,
                 )
 
-            return complaint
+        return complaint
 
     # =====================================================
     # GET ALL
