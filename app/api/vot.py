@@ -10,6 +10,8 @@ from app.schemas.daily_medication import (
     VotSessionResponse,
     VotStartRequest,
     VotStartResponse,
+    VotCompleteRequest,
+    VotCompleteResponse,
 )
 from app.services.vot_service import VOTService
 
@@ -66,6 +68,23 @@ def vot_medicine_detect(
         current_user=current_user,
         daily_medication_id=daily_medication_id,
         image=image,
+    )
+
+
+@router.post(
+    "/complete",
+    response_model=VotCompleteResponse,
+)
+def complete_vot(
+    payload: VotCompleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.complete(
+        db=db,
+        current_user=current_user,
+        daily_medication_id=payload.daily_medication_id,
+        drinking_verified=payload.drinking_verified,
     )
 
 

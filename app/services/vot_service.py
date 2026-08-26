@@ -1,6 +1,6 @@
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
-
+from datetime import datetime
 from app.models.daily_medication import DailyMedicationStatus, VotStep
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.user import User
@@ -15,6 +15,7 @@ from app.schemas.daily_medication import (
     VotMedicineDetectResponse,
     VotSessionResponse,
     VotStartResponse,
+    VotCompleteResponse,
 )
 from app.services.daily_medication_service import (
     DailyMedicationService,
@@ -312,4 +313,61 @@ class VOTService:
             status=occurrence.status,
             vot_step=occurrence.vot_step,
             message=detection.get("message") or "",
+        )
+
+    def complete(
+        self,
+        db: Session,
+        current_user: User,
+        daily_medication_id: int,
+        drinking_verified: bool,
+    ) -> VotCompleteResponse:
+        occurrence = self.daily_medication_service.get_owned(
+            db,
+            current_user,
+            daily_medication_id,
+        )
+
+        if occurrence.status == DailyMedicationStatus.VERIFIED:
+            return VotCompleteResponse(
+                daily_medication_id=occurrence.id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                completed_at=occurrence.completed_at,
+                message="VOT sudah selesai.",
+            )
+
+        if occurrence.status != DailyMedicationStatus.IN_PROGRESS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="VOT tidak dapat diselesaikan pada status ini.",
+            )
+
+        if occurrence.vot_step != VotStep.MEDICINE_MATCHED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verifikasi wajah dan obat belum selesai.",
+            )
+
+        if not drinking_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Proses minum belum terverifikasi.",
+            )
+
+        occurrence.vot_step = VotStep.VERIFIED
+        occurrence.status = DailyMedicationStatus.VERIFIED
+        occurrence.completed_at = datetime.utcnow()
+
+        occurrence = self.repository.update(
+            db,
+            occurrence,
+        )
+
+        return VotCompleteResponse(
+            daily_medication_id=occurrence.id,
+            status=occurrence.status,
+            vot_step=occurrence.vot_step,
+            completed_at=occurrence.completed_at,
+            message="Verifikasi minum obat berhasil.",
         )
