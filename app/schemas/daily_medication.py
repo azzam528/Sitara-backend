@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict
 
@@ -71,4 +71,17 @@ class VotMedicineDetectResponse(BaseModel):
     medicine_match: bool
     status: DailyMedicationStatus
     vot_step: VotStep
+    message: str
+
+
+class VotCompleteRequest(BaseModel):
+    daily_medication_id: int
+    drinking_verified: bool
+
+
+class VotCompleteResponse(BaseModel):
+    daily_medication_id: int
+    status: DailyMedicationStatus
+    vot_step: VotStep
+    completed_at: datetime | None
     message: str
