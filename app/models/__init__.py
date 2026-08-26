@@ -12,6 +12,7 @@ from .health_facility import HealthFacility
 from .activation_token import ActivationToken
 from .face_embedding import FaceEmbedding
 from .face_verification import FaceVerification, FaceVerificationStatus
+from .daily_medication import DailyMedication, DailyMedicationStatus, VotStep
 
 __all__ = [
     "User",
@@ -29,6 +30,9 @@ __all__ = [
     "FaceEmbedding",
     "FaceVerification",
     "FaceVerificationStatus",
+    "DailyMedication",
+    "DailyMedicationStatus",
+    "VotStep",
 ]
 
 

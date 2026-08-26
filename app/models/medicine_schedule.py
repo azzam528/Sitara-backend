@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from app.models.medicine import Medicine
     from app.models.video_verification import VideoVerification
     from app.models.face_verification import FaceVerification
+    from app.models.daily_medication import DailyMedication
 
 class MedicineSchedule(Base):
 
@@ -95,4 +96,10 @@ class MedicineSchedule(Base):
     face_verifications: Mapped[list["FaceVerification"]] = relationship(
         back_populates="medicine_schedule",
         cascade="all, delete-orphan",
-    )
+    )
+
+    daily_medications: Mapped[list["DailyMedication"]] = relationship(
+        back_populates="medicine_schedule",
+    )
+
+from app.models.daily_medication import DailyMedication  # noqa: E402, F401

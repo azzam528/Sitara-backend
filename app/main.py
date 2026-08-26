@@ -36,6 +36,8 @@ from app.api.face import (
 from app.api.medicine_detection import (
     router as medicine_detection_router,
 )
+from app.api.medication import router as medication_router
+from app.api.vot import router as vot_router
 
 app = FastAPI(title="SITARA API")
 
@@ -72,6 +74,8 @@ app.include_router(control_schedule_router)
 app.include_router(notification_router)
 app.include_router(dashboard_router)
 app.include_router(medicine_detection_router)
+app.include_router(medication_router)
+app.include_router(vot_router)
 
 # =========================
 # Health Check Endpoint
