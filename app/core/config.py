@@ -46,4 +46,4 @@ class Settings(BaseSettings):
 
 # Membuat object settings agar bisa digunakan
 # di seluruh project.
-settings = Settings()
+settings = Settings()
