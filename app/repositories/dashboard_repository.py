@@ -1,13 +1,14 @@
 from datetime import date, time, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.patient import Patient
-from app.models.treatment import Treatment
+from app.models.treatment import Treatment, TreatmentStatus
 from app.models.complaint import Complaint
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.daily_medication import DailyMedication, DailyMedicationStatus
+from app.models.video_verification import VideoVerification
 from app.models.refill_request import RefillRequest
 from app.models.control_schedule import ControlSchedule
 
@@ -27,16 +28,60 @@ class DashboardRepository:
             or 0
         )
 
+    def get_treatment_status_counts(
+        self,
+        db: Session,
+    ) -> tuple[int, int]:
+        active_count = (
+            db.query(func.count(Treatment.id))
+            .filter(
+                Treatment.status == TreatmentStatus.ACTIVE,
+                Treatment.is_active.is_(True),
+            )
+            .scalar()
+            or 0
+        )
+        completed_count = (
+            db.query(func.count(Treatment.id))
+            .filter(
+                Treatment.status == TreatmentStatus.COMPLETED,
+                Treatment.is_active.is_(True),
+            )
+            .scalar()
+            or 0
+        )
+        return active_count, completed_count
+
     def get_today_complaints_count(
         self,
         db: Session,
+        today: date | None = None,
     ) -> int:
-        today = date.today()
+        if today is None:
+            today = date.today()
         return (
             db.query(func.count(Complaint.id))
             .filter(
                 func.date(Complaint.created_at) == today,
                 Complaint.is_active.is_(True),
+            )
+            .scalar()
+            or 0
+        )
+
+    def get_today_verifications_count(
+        self,
+        db: Session,
+        today: date,
+    ) -> int:
+        return (
+            db.query(func.count(VideoVerification.id))
+            .filter(
+                or_(
+                    func.date(VideoVerification.created_at) == today,
+                    VideoVerification.verification_date == today,
+                ),
+                VideoVerification.is_active.is_(True),
             )
             .scalar()
             or 0
@@ -153,7 +198,7 @@ class DashboardRepository:
     def get_recent_activities(
         self,
         db: Session,
-        limit: int = 10,
+        limit: int = 5,
     ):
         activities = []
 
@@ -170,10 +215,16 @@ class DashboardRepository:
         )
 
         for complaint in complaints:
+            patient_name = (
+                complaint.treatment.patient.full_name
+                if complaint.treatment and complaint.treatment.patient
+                else None
+            )
+            title = f"Keluhan baru dari {patient_name}" if patient_name else "Keluhan baru pasien"
             activities.append(
                 {
-                    "type": "complaint",
-                    "title": "Complaint baru",
+                    "type": "danger",
+                    "title": title,
                     "description": complaint.description,
                     "created_at": complaint.created_at.isoformat(),
                 }
@@ -192,14 +243,20 @@ class DashboardRepository:
         )
 
         for refill in refills:
+            patient_name = (
+                refill.treatment.patient.full_name
+                if refill.treatment and refill.treatment.patient
+                else None
+            )
+            title = f"Permintaan refill dari {patient_name}" if patient_name else "Permintaan refill baru"
             activities.append(
                 {
-                    "type": "refill",
-                    "title": "Permintaan refill baru",
+                    "type": "warning",
+                    "title": title,
                     "description": (
                         f"Permintaan refill sebanyak "
                         f"{refill.quantity} unit. "
-                        f"Status: {refill.status.value}"
+                        f"Status: {refill.status.value if hasattr(refill.status, 'value') else refill.status}"
                     ),
                     "created_at": refill.created_at.isoformat(),
                 }
@@ -218,10 +275,16 @@ class DashboardRepository:
         )
 
         for schedule in schedules:
+            patient_name = (
+                schedule.treatment.patient.full_name
+                if schedule.treatment and schedule.treatment.patient
+                else None
+            )
+            title = f"Jadwal kontrol baru untuk {patient_name}" if patient_name else "Jadwal kontrol baru"
             activities.append(
                 {
-                    "type": "control_schedule",
-                    "title": "Jadwal kontrol baru",
+                    "type": "primary",
+                    "title": title,
                     "description": (
                         f"Jadwal kontrol "
                         f"{schedule.control_date} "

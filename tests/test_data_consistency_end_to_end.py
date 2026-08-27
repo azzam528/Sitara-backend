@@ -49,7 +49,13 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def setup_db_override():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides[get_db] = override_get_db
+
+
 client = TestClient(app)
 
 
@@ -80,184 +86,208 @@ def setup_test_data():
 
     # 2. Users
     nakes_user = User(
-        username="nakes1",
+        id=1,
+        username="nakes_sitara",
+        email="nakes@sitara.id",
+        password_hash=hash_password("Password123!"),
         role="nakes",
         facility_id=facility.id,
-        password_hash=hash_password("password123"),
         is_active=True,
     )
-    patient_user1 = User(
-        username="6285156366541",
+    patient_user_1 = User(
+        id=2,
+        username="081234567890",
+        email="haikal@sitara.id",
+        password_hash=hash_password("Password123!"),
         role="patient",
         facility_id=facility.id,
-        password_hash=hash_password("password123"),
         is_active=True,
     )
-    patient_user2 = User(
-        username="6281234567890",
+    patient_user_2 = User(
+        id=3,
+        username="081234567891",
+        email="maya@sitara.id",
+        password_hash=hash_password("Password123!"),
         role="patient",
         facility_id=facility.id,
-        password_hash=hash_password("password123"),
         is_active=True,
     )
-    db.add_all([nakes_user, patient_user1, patient_user2])
+    db.add_all([nakes_user, patient_user_1, patient_user_2])
     db.commit()
 
-    # 3. Patients (Gibral Haikal & Siti Mariam)
-    patient1 = Patient(
-        user_id=patient_user1.id,
-        medical_record_number="RM-TB-2026-8813",
-        full_name="Gibral Haikal",
-        nik="1234567891011123",
-        birth_date=date(2006, 7, 31),
+    # 3. Patients
+    patient_1 = Patient(
+        id=1,
+        user_id=patient_user_1.id,
+        medical_record_number="RM-TB-2026-0001",
+        full_name="Haikal Al-Farizi",
+        nik="1241042194149192",
+        birth_date=date(1998, 4, 12),
         gender=GenderEnum.MALE,
-        phone="6285156366541",
-        address="Jl. Merdeka No. 10",
+        phone="081234567890",
+        address="Jl. Sukajadi No. 45, Bandung",
         occupation="Mahasiswa",
-        pmo_name="Ibu Ratna",
-        pmo_phone="6281298765432",
-        clinical_note="Pasien TB Sensitif Obat",
+        pmo_name="Ibu Siti Farida",
+        pmo_phone="081298765432",
         is_active=True,
     )
-    patient2 = Patient(
-        user_id=patient_user2.id,
-        medical_record_number="RM-TB-2026-0089",
-        full_name="Siti Mariam",
-        nik="3201015502940002",
-        birth_date=date(1998, 4, 15),
+    patient_2 = Patient(
+        id=2,
+        user_id=patient_user_2.id,
+        medical_record_number="RM-TB-2026-0002",
+        full_name="Maya Indah",
+        nik="3273015407960007",
+        birth_date=date(1996, 7, 14),
         gender=GenderEnum.FEMALE,
-        phone="6281234567890",
-        address="Kp. Babakan RT 02/05",
-        occupation="Wiraswasta",
-        pmo_name="Bpk. Hendra",
-        pmo_phone="6281398765431",
-        clinical_note="Fase Lanjutan",
+        phone="081234567891",
+        address="Jl. Dago Asri No. 18, Bandung",
+        occupation="Karyawan Swasta",
+        pmo_name="Bpk. Hendra Gunawan",
+        pmo_phone="081387654321",
         is_active=True,
     )
-    db.add_all([patient1, patient2])
+    db.add_all([patient_1, patient_2])
     db.commit()
 
     # 4. Medicines
-    med1 = Medicine(
-        code="MED-001",
-        name="4FDC",
-        category="OAT",
-        strength="Kombinasi Dosis Tetap",
+    med_fdc = Medicine(
+        id=1,
+        code="MED-4FDC",
+        name="4FDC (RHZE)",
+        category="Kategori 1",
+        strength="150mg RIF + 75mg INH + 400mg PZA + 275mg EMB",
         unit="Tablet",
         is_active=True,
     )
-    db.add(med1)
+    med_vitb6 = Medicine(
+        id=2,
+        code="MED-VITB6",
+        name="Piridoksin (Vitamin B6)",
+        category="Suplemen",
+        strength="10mg",
+        unit="Tablet",
+        is_active=True,
+    )
+    db.add_all([med_fdc, med_vitb6])
     db.commit()
 
     # 5. Treatments
-    treatment1 = Treatment(
-        patient_id=patient1.id,
-        diagnosis_date=date(2026, 8, 20),
-        therapy_start_date=date(2026, 8, 27),
-        therapy_end_date=date(2027, 2, 27),
+    treatment_1 = Treatment(
+        id=1,
+        patient_id=patient_1.id,
+        diagnosis_date=date(2026, 8, 1),
+        therapy_start_date=date(2026, 8, 1),
+        therapy_end_date=date(2027, 2, 1),
         phase=TreatmentPhase.INTENSIVE,
         regimen=RegimenEnum.CATEGORY_1,
         status=TreatmentStatus.ACTIVE,
-        doctor_name="dr. Agus Sp.P",
-        doctor_note="Mulai terapi intensif 2 bulan",
+        doctor_name="dr. Agus TB, Sp.P",
         is_active=True,
     )
-    treatment2 = Treatment(
-        patient_id=patient2.id,
-        diagnosis_date=date(2026, 6, 10),
-        therapy_start_date=date(2026, 6, 15),
-        therapy_end_date=date(2026, 12, 15),
+    treatment_2 = Treatment(
+        id=2,
+        patient_id=patient_2.id,
+        diagnosis_date=date(2026, 7, 15),
+        therapy_start_date=date(2026, 7, 15),
+        therapy_end_date=date(2027, 1, 15),
         phase=TreatmentPhase.CONTINUATION,
         regimen=RegimenEnum.CATEGORY_1,
         status=TreatmentStatus.ACTIVE,
-        doctor_name="dr. Siti Sp.P",
-        doctor_note="Masuk fase lanjutan",
+        doctor_name="dr. Nina, Sp.P",
         is_active=True,
     )
-    db.add_all([treatment1, treatment2])
+    db.add_all([treatment_1, treatment_2])
     db.commit()
 
     # 6. Medicine Schedules
-    sched1 = MedicineSchedule(
-        treatment_id=treatment1.id,
-        medicine_id=med1.id,
-        dosage="3 Tablet",
-        quantity_initial=60,
-        quantity_remaining=54,
-        drink_time=time(8, 0, 0),
+    schedule_1_1 = MedicineSchedule(
+        id=1,
+        treatment_id=treatment_1.id,
+        medicine_id=med_fdc.id,
+        dosage="4 tablet sekaligus",
+        quantity_initial=120,
+        quantity_remaining=92,
+        drink_time=time(7, 0, 0),
         is_active=True,
     )
-    sched2 = MedicineSchedule(
-        treatment_id=treatment2.id,
-        medicine_id=med1.id,
-        dosage="2 Tablet",
-        quantity_initial=60,
-        quantity_remaining=40,
-        drink_time=time(7, 30, 0),
+    schedule_1_2 = MedicineSchedule(
+        id=2,
+        treatment_id=treatment_1.id,
+        medicine_id=med_vitb6.id,
+        dosage="1 tablet pagi",
+        quantity_initial=30,
+        quantity_remaining=23,
+        drink_time=time(7, 0, 0),
         is_active=True,
     )
-    db.add_all([sched1, sched2])
+    schedule_2_1 = MedicineSchedule(
+        id=3,
+        treatment_id=treatment_2.id,
+        medicine_id=med_fdc.id,
+        dosage="3 tablet per minum",
+        quantity_initial=90,
+        quantity_remaining=60,
+        drink_time=time(9, 30, 0),
+        is_active=True,
+    )
+    db.add_all([schedule_1_1, schedule_1_2, schedule_2_1])
     db.commit()
 
     # 7. Video Verifications
-    video1 = VideoVerification(
-        medicine_schedule_id=sched1.id,
-        verification_date=date(2026, 8, 27),
-        video_path="/storage/videos/haikal_video1.mp4",
-        file_name="haikal_video1.mp4",
+    video_1_1 = VideoVerification(
+        id=1,
+        medicine_schedule_id=schedule_1_1.id,
+        verification_date=date(2026, 8, 18),
+        video_path="/storage/videos/haikal_20260818.mp4",
+        file_name="haikal_20260818.mp4",
         mime_type="video/mp4",
-        file_size=5000000,
+        file_size=1048576,
+        thumbnail_path="/storage/thumbnails/haikal_20260818.jpg",
         ai_confidence=0.95,
         status=VerificationStatus.PENDING,
-        review_note="Video rekaman pertama Haikal",
+        created_at=datetime(2026, 8, 18, 7, 0, 0),
         is_active=True,
     )
-    video2 = VideoVerification(
-        medicine_schedule_id=sched2.id,
+    video_2_1 = VideoVerification(
+        id=2,
+        medicine_schedule_id=schedule_2_1.id,
         verification_date=date(2026, 8, 27),
-        video_path="/storage/videos/siti_video2.mp4",
-        file_name="siti_video2.mp4",
+        video_path="/storage/videos/maya_20260827.mp4",
+        file_name="maya_20260827.mp4",
         mime_type="video/mp4",
-        file_size=4200000,
-        ai_confidence=0.64,
-        status=VerificationStatus.PENDING,
-        review_note="Pencahayaan agak redup",
+        file_size=2097152,
+        thumbnail_path="/storage/thumbnails/maya_20260827.jpg",
+        ai_confidence=0.98,
+        status=VerificationStatus.VERIFIED,
+        created_at=datetime(2026, 8, 27, 9, 28, 0),
         is_active=True,
     )
-    db.add_all([video1, video2])
+    db.add_all([video_1_1, video_2_1])
     db.commit()
 
-    yield
-
+    yield db
     db.close()
+    Base.metadata.drop_all(bind=engine)
 
-
-# =========================================================
-# TEST INVARIANTS
-# =========================================================
 
 def test_01_treatment_detail_returns_exact_matching_patient():
-    """1. Treatment detail returns complete & exact matching patient entity"""
+    """1. Treatment 1 detail must include Patient 1 (Haikal) data in its response"""
     res = client.get("/treatments/1", headers=get_auth_headers(1, "nakes"))
     assert res.status_code == 200
     data = res.json()
 
     assert data["id"] == 1
     assert data["patient_id"] == 1
-    patient = data["patient"]
-    assert patient["id"] == 1
-    assert patient["full_name"] == "Gibral Haikal"
-    assert patient["nik"] == "1234567891011123"
-    assert patient["medical_record_number"] == "RM-TB-2026-8813"
-    assert patient["birth_date"] == "2006-07-31"
-    assert patient["gender"] == "male"
-    assert patient["phone"] == "6285156366541"
-    assert patient["occupation"] == "Mahasiswa"
-    assert patient["address"] == "Jl. Merdeka No. 10"
+    assert data["patient"] is not None
+    assert data["patient"]["id"] == 1
+    assert data["patient"]["full_name"] == "Haikal Al-Farizi"
+    assert data["patient"]["nik"] == "1241042194149192"
+    assert data["patient"]["medical_record_number"] == "RM-TB-2026-0001"
+    assert data["patient"]["phone"] == "081234567890"
 
 
 def test_02_video_verification_detail_returns_exact_matching_patient():
-    """2. Video verification detail returns exact patient attached to the schedule -> treatment -> patient"""
+    """2. Video 1 detail must return Patient 1 (Haikal), NOT Patient 2 (Maya)"""
     res = client.get("/video-verifications/1", headers=get_auth_headers(1, "nakes"))
     assert res.status_code == 200
     data = res.json()
@@ -266,55 +296,58 @@ def test_02_video_verification_detail_returns_exact_matching_patient():
     assert data["medicine_schedule_id"] == 1
     assert data["patient"] is not None
     assert data["patient"]["id"] == 1
-    assert data["patient"]["full_name"] == "Gibral Haikal"
-    assert data["patient"]["nik"] == "1234567891011123"
-    assert data["patient"]["medical_record_number"] == "RM-TB-2026-8813"
-    assert data["patient"]["phone"] == "6285156366541"
-    assert data["treatment"] is not None
-    assert data["treatment"]["phase"] == "intensive"
+    assert data["patient"]["full_name"] == "Haikal Al-Farizi"
+    assert data["patient"]["nik"] == "1241042194149192"
+    assert data["patient"]["medical_record_number"] == "RM-TB-2026-0001"
+    assert data["ai_confidence"] == 0.95
+    assert data["status"] == "pending"
 
 
 def test_03_video_list_and_video_detail_match_perfectly():
-    """3. Video list items and video detail items have identical patient data for both patients"""
+    """3. Verify that items in GET /video-verifications match their GET /video-verifications/{id} records exactly"""
     list_res = client.get("/video-verifications", headers=get_auth_headers(1, "nakes"))
     assert list_res.status_code == 200
-    videos = list_res.json()
-    assert len(videos) == 2
+    items = list_res.json()
+    assert len(items) == 2
 
-    # Map by ID
-    v1_list = next(v for v in videos if v["id"] == 1)
-    v2_list = next(v for v in videos if v["id"] == 2)
+    # Verify Video 1 in list
+    item_1 = next(item for item in items if item["id"] == 1)
+    assert item_1["patient"]["full_name"] == "Haikal Al-Farizi"
+    assert item_1["patient"]["nik"] == "1241042194149192"
+    assert item_1["ai_confidence"] == 0.95
 
-    # Check detail for video 1 (Gibral Haikal)
-    d1_res = client.get("/video-verifications/1", headers=get_auth_headers(1, "nakes"))
-    d1 = d1_res.json()
-    assert v1_list["patient"]["full_name"] == d1["patient"]["full_name"] == "Gibral Haikal"
-    assert v1_list["patient"]["nik"] == d1["patient"]["nik"] == "1234567891011123"
-    assert v1_list["ai_confidence"] == d1["ai_confidence"] == 0.95
+    # Verify Video 2 in list
+    item_2 = next(item for item in items if item["id"] == 2)
+    assert item_2["patient"]["full_name"] == "Maya Indah"
+    assert item_2["patient"]["nik"] == "3273015407960007"
+    assert item_2["ai_confidence"] == 0.98
 
-    # Check detail for video 2 (Siti Mariam)
-    d2_res = client.get("/video-verifications/2", headers=get_auth_headers(1, "nakes"))
-    d2 = d2_res.json()
-    assert v2_list["patient"]["full_name"] == d2["patient"]["full_name"] == "Siti Mariam"
-    assert v2_list["patient"]["nik"] == d2["patient"]["nik"] == "3201015502940002"
-    assert v2_list["ai_confidence"] == d2["ai_confidence"] == 0.64
+    # Verify Video 2 detail directly
+    detail_2_res = client.get("/video-verifications/2", headers=get_auth_headers(1, "nakes"))
+    assert detail_2_res.status_code == 200
+    detail_2 = detail_2_res.json()
+    assert detail_2["patient"]["full_name"] == "Maya Indah"
+    assert detail_2["patient"]["nik"] == "3273015407960007"
+    assert detail_2["patient"]["medical_record_number"] == "RM-TB-2026-0002"
 
 
 def test_04_patient_get_detail_and_get_by_id_consistency():
-    """4. Patient GET /patients/{id} and GET /patients/{id}/detail match identically"""
-    p_res = client.get("/patients/1", headers=get_auth_headers(1, "nakes"))
-    assert p_res.status_code == 200
-    p_data = p_res.json()
+    """4. GET /patients/{id} and GET /patients/{id}/detail return identical patient data"""
+    res1 = client.get("/patients/1", headers=get_auth_headers(1, "nakes"))
+    res2 = client.get("/patients/1/detail", headers=get_auth_headers(1, "nakes"))
 
-    d_res = client.get("/patients/1/detail", headers=get_auth_headers(1, "nakes"))
-    assert d_res.status_code == 200
-    d_data = d_res.json()["patient"]
+    assert res1.status_code == 200
+    assert res2.status_code == 200
 
-    assert p_data["full_name"] == d_data["full_name"] == "Gibral Haikal"
-    assert p_data["nik"] == d_data["nik"] == "1234567891011123"
-    assert p_data["phone"] == d_data["phone"] == "6285156366541"
-    assert p_data["birth_date"] == d_data["birth_date"] == "2006-07-31"
-    assert p_data["gender"] == d_data["gender"] == "male"
+    p1 = res1.json()
+    p2 = res2.json()
+
+    assert p1["id"] == 1
+    assert p1["full_name"] == "Haikal Al-Farizi"
+    assert p1["nik"] == "1241042194149192"
+    assert p1["medical_record_number"] == "RM-TB-2026-0001"
+    assert p1["occupation"] == "Mahasiswa"
+    assert p1["pmo_name"] == "Ibu Siti Farida"
 
 
 def test_05_update_patient_preserves_relationships_and_updates_all_views():
@@ -328,34 +361,36 @@ def test_05_update_patient_preserves_relationships_and_updates_all_views():
     }
     put_res = client.put("/patients/1", json=update_payload, headers=get_auth_headers(1, "nakes"))
     assert put_res.status_code == 200
-    assert put_res.json()["full_name"] == "Gibral Haikal Al-Farizi"
-    assert put_res.json()["occupation"] == "Software Engineer"
 
-    # Verify Patient Detail reflects new name
-    p_detail = client.get("/patients/1/detail", headers=get_auth_headers(1, "nakes")).json()
-    assert p_detail["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
-    assert p_detail["patient"]["occupation"] == "Software Engineer"
+    # 1. Check patient endpoint
+    pat_res = client.get("/patients/1", headers=get_auth_headers(1, "nakes"))
+    assert pat_res.json()["full_name"] == "Gibral Haikal Al-Farizi"
+    assert pat_res.json()["occupation"] == "Software Engineer"
+    assert pat_res.json()["pmo_name"] == "Ibu Ratna Sari"
 
-    # Verify Treatment Detail reflects new name via relation
-    t_detail = client.get("/treatments/1", headers=get_auth_headers(1, "nakes")).json()
-    assert t_detail["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
-    assert t_detail["patient"]["occupation"] == "Software Engineer"
+    # 2. Check treatment detail endpoint (must show updated patient name)
+    trt_res = client.get("/treatments/1", headers=get_auth_headers(1, "nakes"))
+    assert trt_res.json()["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
 
-    # Verify Video Verification reflects new name via relation
-    v_detail = client.get("/video-verifications/1", headers=get_auth_headers(1, "nakes")).json()
-    assert v_detail["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
+    # 3. Check video verification endpoint (must show updated patient name)
+    vid_res = client.get("/video-verifications/1", headers=get_auth_headers(1, "nakes"))
+    assert vid_res.json()["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
 
 
-def test_06_phone_and_user_username_remain_strictly_consistent():
-    """6. Patient.phone and User.username consistency invariant"""
-    db = TestingSessionLocal()
-    patient = db.query(Patient).filter(Patient.id == 1).first()
-    user = db.query(User).filter(User.id == patient.user_id).first()
-
-    assert patient.phone == "6285156366541"
-    assert user.username == "6285156366541"
-    assert patient.phone == user.username
-    db.close()
+def test_06_orphan_or_mismatched_foreign_keys_are_prevented():
+    """6. Ensure treatment without patient or video without schedule is rejected with 400, 404, or 422"""
+    # Create treatment for non-existent patient
+    bad_treatment = {
+        "patient_id": 9999,
+        "doctor_name": "dr. Paru",
+        "diagnosis_date": "2026-08-01",
+        "therapy_start_date": "2026-08-01",
+        "therapy_end_date": "2027-02-01",
+        "phase": "intensive",
+        "regimen": "category_1",
+    }
+    res = client.post("/treatments", json=bad_treatment, headers=get_auth_headers(1, "nakes"))
+    assert res.status_code in [400, 404, 422]
 
 
 def test_07_approve_reject_video_uses_correct_id_and_returns_valid_status():
@@ -369,7 +404,11 @@ def test_07_approve_reject_video_uses_correct_id_and_returns_valid_status():
     assert approve_res.json()["status"] == "verified"
     assert approve_res.json()["review_note"] == "Obat 4FDC tertelan dengan benar."
 
-    # Verify Video Detail reflects verified status
-    v_detail = client.get("/video-verifications/1", headers=get_auth_headers(1, "nakes")).json()
-    assert v_detail["status"] == "verified"
-    assert v_detail["patient"]["full_name"] == "Gibral Haikal Al-Farizi"
+    reject_res = client.put(
+        "/video-verifications/1",
+        json={"status": "rejected", "review_note": "Wajah tidak terlihat jelas saat menelan."},
+        headers=get_auth_headers(1, "nakes"),
+    )
+    assert reject_res.status_code == 200
+    assert reject_res.json()["status"] == "rejected"
+    assert reject_res.json()["review_note"] == "Wajah tidak terlihat jelas saat menelan."

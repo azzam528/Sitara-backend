@@ -40,8 +40,16 @@ class DashboardService:
             self.repository.get_active_patients_count(db)
         )
 
+        active_treatments, completed_treatments = (
+            self.repository.get_treatment_status_counts(db)
+        )
+
         today_complaints = (
-            self.repository.get_today_complaints_count(db)
+            self.repository.get_today_complaints_count(db, today)
+        )
+
+        today_verifications = (
+            self.repository.get_today_verifications_count(db, today)
         )
 
         critical_stock = (
@@ -82,10 +90,14 @@ class DashboardService:
         return {
             "summary": {
                 "active_patients": active_patients,
+                "active_treatments": active_treatments,
+                "completed_treatments": completed_treatments,
                 "medication_adherence": overall_adherence,
-                "high_risk_patients": 0,
+                "today_verifications": today_verifications,
                 "today_complaints": today_complaints,
                 "critical_stock_items": len(critical_stock),
+                "high_risk_patients": 0,
+                "tb_ro_patients": 0,
             },
 
             "risk": {

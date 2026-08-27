@@ -1,31 +1,50 @@
+import os
+import sys
 from datetime import date, time, timedelta, datetime
+import uuid
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.main import app
-from app.core.database import SessionLocal, engine, Base
+from app.core.database import Base, get_db
 from app.models.user import User
 from app.models.patient import Patient, GenderEnum
 from app.models.treatment import Treatment, TreatmentPhase, TreatmentStatus, RegimenEnum
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.daily_medication import DailyMedication, DailyMedicationStatus, VotStep
+from app.models.video_verification import VideoVerification, VerificationStatus
+from app.models.complaint import Complaint
 from app.core.security import create_access_token
 from app.services.dashboard_service import today_in_jakarta, now_time_in_jakarta
+
+# Use isolated in-memory SQLite database
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+test_engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def setup_tables():
+    Base.metadata.create_all(bind=test_engine)
+    yield
+    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture
 def db():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = SessionLocal(bind=connection)
-
+    session = TestingSessionLocal()
     yield session
-
     session.close()
-    transaction.rollback()
-    connection.close()
 
 
 @pytest.fixture
@@ -33,7 +52,6 @@ def client(db: Session):
     def override_get_db():
         yield db
 
-    from app.core.database import get_db
     app.dependency_overrides[get_db] = override_get_db
     c = TestClient(app)
     yield c
@@ -42,74 +60,74 @@ def client(db: Session):
 
 @pytest.fixture
 def nakes_headers(db: Session):
+    uid = uuid.uuid4().hex[:8]
     user = User(
-        username="nakes_dash_test",
-        email="nakes_dash_test@sitara.com",
+        username=f"nakes_dash_{uid}",
+        email=f"nakes_dash_{uid}@sitara.com",
         password_hash="fakehash",
         role="nakes",
         is_active=True,
     )
     db.add(user)
     db.commit()
-    db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return {"Authorization": f"Bearer {token}"}
 
 
 def create_base_patient_and_schedule(db: Session, prefix: str = "d"):
+    uid = uuid.uuid4().hex[:8]
     user_p = User(
-        username=f"6289999990{prefix}",
-        email=f"p_{prefix}@sitara.com",
+        username=f"6289{uid}",
+        email=f"p_{uid}@sitara.com",
         password_hash="fakehash",
         role="patient",
         is_active=True,
     )
     db.add(user_p)
-    db.flush()
+    db.commit()
 
     patient = Patient(
         user_id=user_p.id,
-        nik=f"123456789012340{prefix}"[:16],
-        medical_record_number=f"RM-D-{prefix}",
-        full_name=f"Pasien {prefix}",
+        nik=f"32{uid[:14]}",
+        medical_record_number=f"RM-{uid}",
+        full_name=f"Pasien Dashboard {prefix}",
         phone=user_p.username,
-        birth_date=date(1995, 5, 5),
+        birth_date=date(1990, 1, 1),
         gender=GenderEnum.MALE,
-        address="Alamat Test",
+        address="Jl. Sehat No. 1",
         occupation="Karyawan",
         pmo_name="PMO Test",
-        pmo_phone="628123456789",
+        pmo_phone="628999999999",
         is_active=True,
     )
     db.add(patient)
-    db.flush()
+    db.commit()
 
-    today = today_in_jakarta()
     treatment = Treatment(
         patient_id=patient.id,
-        diagnosis_date=today - timedelta(days=30),
-        therapy_start_date=today - timedelta(days=30),
-        therapy_end_date=today + timedelta(days=150),
+        diagnosis_date=date(2026, 8, 1),
+        therapy_start_date=date(2026, 8, 1),
+        therapy_end_date=date(2027, 2, 1),
         phase=TreatmentPhase.INTENSIVE,
         regimen=RegimenEnum.CATEGORY_1,
         status=TreatmentStatus.ACTIVE,
-        doctor_name="dr. TB",
+        doctor_name="dr. Paru",
         is_active=True,
     )
     db.add(treatment)
-    db.flush()
+    db.commit()
 
     medicine = Medicine(
-        name=f"FDC {prefix}",
-        code=f"FDC-{prefix}",
-        category="OAT Kategori 1",
-        strength="150mg",
-        unit="tablet",
+        code=f"OAT-{uid}",
+        name=f"FDC-{prefix}",
+        category="Kategori 1",
+        strength="FDC",
+        unit="Tablet",
         is_active=True,
     )
     db.add(medicine)
-    db.flush()
+    db.commit()
 
     schedule1 = MedicineSchedule(
         treatment_id=treatment.id,
@@ -130,7 +148,7 @@ def create_base_patient_and_schedule(db: Session, prefix: str = "d"):
         is_active=True,
     )
     db.add_all([schedule1, schedule2])
-    db.flush()
+    db.commit()
 
     return patient, treatment, schedule1, schedule2
 
@@ -138,7 +156,6 @@ def create_base_patient_and_schedule(db: Session, prefix: str = "d"):
 def test_case_1_no_daily_medications_returns_none(client, nakes_headers, db):
     # Case 1: No daily medications -> medication_adherence is null, no fake 92%
     create_base_patient_and_schedule(db, "1")
-    db.commit()
 
     res = client.get("/dashboard", headers=nakes_headers)
     assert res.status_code == 200
@@ -357,3 +374,40 @@ def test_case_7_and_8_consistency_and_refetch_update(client, nakes_headers, db):
 
     res3 = client.get("/dashboard", headers=nakes_headers)
     assert res3.json()["summary"]["medication_adherence"] == 50.0
+
+
+def test_case_9_today_verifications_count(client, nakes_headers, db):
+    # Case 9: Verifikasi hari ini reflects today's VideoVerification count
+    patient, treatment, s1, s2 = create_base_patient_and_schedule(db, "9")
+    today = today_in_jakarta()
+
+    res_init = client.get("/dashboard", headers=nakes_headers)
+    init_count = res_init.json()["summary"]["today_verifications"]
+
+    vv1 = VideoVerification(
+        medicine_schedule_id=s1.id,
+        verification_date=today,
+        video_path="/videos/test1.mp4",
+        file_name="test1.mp4",
+        mime_type="video/mp4",
+        file_size=1048576,
+        status=VerificationStatus.VERIFIED,
+        ai_confidence=0.95,
+        is_active=True,
+    )
+    vv2 = VideoVerification(
+        medicine_schedule_id=s2.id,
+        verification_date=today,
+        video_path="/videos/test2.mp4",
+        file_name="test2.mp4",
+        mime_type="video/mp4",
+        file_size=1048576,
+        status=VerificationStatus.PENDING,
+        ai_confidence=0.88,
+        is_active=True,
+    )
+    db.add_all([vv1, vv2])
+    db.commit()
+
+    res_after = client.get("/dashboard", headers=nakes_headers)
+    assert res_after.json()["summary"]["today_verifications"] == init_count + 2
