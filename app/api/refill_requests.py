@@ -65,6 +65,48 @@ def get_all_refills(
     return service.get_all(db)
 
 
+# =========================================================
+# PATIENT
+# Static paths must be registered before /{refill_id}
+# so GET /refills/my is not captured by the nakes detail route.
+# =========================================================
+
+
+@router.get(
+    "/my",
+    response_model=list[RefillResponse],
+)
+def get_my_refills(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.get_my_refills(
+        db,
+        current_user.id,
+    )
+
+
+@router.post(
+    "/my",
+    response_model=RefillResponse,
+)
+def create_my_refill(
+    refill: RefillCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.create_refill(
+        db,
+        refill,
+        current_user,
+    )
+
+
+# =========================================================
+# NAKES — parameterized
+# =========================================================
+
+
 @router.get(
     "/{refill_id}",
     response_model=RefillListResponse,
@@ -110,39 +152,4 @@ def delete_refill(
     return service.delete_refill(
         db,
         refill_id,
-    )
-
-
-# =========================================================
-# PATIENT
-# =========================================================
-
-
-@router.get(
-    "/my",
-    response_model=list[RefillResponse],
-)
-def get_my_refills(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-    return service.get_my_refills(
-        db,
-        current_user.id,
-    )
-
-
-@router.post(
-    "/my",
-    response_model=RefillResponse,
-)
-def create_my_refill(
-    refill: RefillCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-    return service.create_refill(
-        db,
-        refill,
-        current_user,
     )

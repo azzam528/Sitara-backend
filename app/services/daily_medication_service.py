@@ -4,7 +4,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.daily_medication import DailyMedication
+from app.models.daily_medication import (
+    DailyMedication,
+    DailyMedicationStatus,
+    VotStep,
+)
 from app.models.user import User
 from app.repositories.daily_medication_repository import (
     DailyMedicationRepository,
@@ -21,8 +25,30 @@ def jakarta_timezone():
         return timezone(timedelta(hours=7))
 
 
+def now_in_jakarta() -> datetime:
+    return datetime.now(jakarta_timezone())
+
+
 def today_in_jakarta() -> date:
-    return datetime.now(jakarta_timezone()).date()
+    return now_in_jakarta().date()
+
+
+def is_vot_eligible(occurrence: DailyMedication) -> bool:
+    if occurrence.status in (
+        DailyMedicationStatus.VERIFIED,
+        DailyMedicationStatus.MISSED,
+        DailyMedicationStatus.REJECTED,
+    ):
+        return False
+    if occurrence.vot_step == VotStep.VERIFIED:
+        return False
+
+    scheduled_at = datetime.combine(
+        occurrence.scheduled_date,
+        occurrence.scheduled_time,
+        tzinfo=jakarta_timezone(),
+    )
+    return scheduled_at <= now_in_jakarta()
 
 
 class DailyMedicationService:
@@ -76,9 +102,11 @@ class DailyMedicationService:
                     quantity_remaining=schedule.quantity_remaining,
                     status=occurrence.status,
                     vot_step=occurrence.vot_step,
+                    eligible=is_vot_eligible(occurrence),
                 )
             )
 
+        items.sort(key=lambda item: item.scheduled_time)
         return items
 
     def get_owned(
