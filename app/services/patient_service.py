@@ -1,6 +1,6 @@
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -101,6 +101,16 @@ class PatientService:
     ):
 
         # -------------------------------------------------
+        # Validate Birth Date
+        # -------------------------------------------------
+
+        if patient_data.birth_date >= date.today():
+            raise HTTPException(
+                status_code=400,
+                detail="Tanggal lahir tidak boleh di masa depan.",
+            )
+
+        # -------------------------------------------------
         # Normalize WhatsApp
         # -------------------------------------------------
 
@@ -143,7 +153,7 @@ class PatientService:
         if existing_nik:
             raise HTTPException(
                 status_code=400,
-                detail="NIK already exists",
+                detail="NIK sudah terdaftar dalam sistem.",
             )
 
         # -------------------------------------------------
@@ -158,7 +168,7 @@ class PatientService:
         if existing_mrn:
             raise HTTPException(
                 status_code=400,
-                detail="Medical record number already exists",
+                detail="Nomor rekam medis sudah terdaftar.",
             )
 
         # -------------------------------------------------

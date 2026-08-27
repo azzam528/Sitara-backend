@@ -1,14 +1,16 @@
-from datetime import date
-
+from datetime import date, time, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.patient import Patient
+from app.models.treatment import Treatment
 from app.models.complaint import Complaint
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
+from app.models.daily_medication import DailyMedication, DailyMedicationStatus
 from app.models.refill_request import RefillRequest
 from app.models.control_schedule import ControlSchedule
+
 
 class DashboardRepository:
 
@@ -16,7 +18,6 @@ class DashboardRepository:
         self,
         db: Session,
     ) -> int:
-
         return (
             db.query(func.count(Patient.id))
             .filter(
@@ -30,9 +31,7 @@ class DashboardRepository:
         self,
         db: Session,
     ) -> int:
-
         today = date.today()
-
         return (
             db.query(func.count(Complaint.id))
             .filter(
@@ -48,7 +47,6 @@ class DashboardRepository:
         db: Session,
         threshold: int = 7,
     ):
-
         return (
             db.query(
                 MedicineSchedule.medicine_id,
@@ -65,16 +63,99 @@ class DashboardRepository:
             )
             .all()
         )
+
+    def get_medication_adherence_stats(
+        self,
+        db: Session,
+        today: date,
+        current_time: time,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> tuple[int, int]:
+        query = (
+            db.query(DailyMedication)
+            .join(
+                MedicineSchedule,
+                MedicineSchedule.id == DailyMedication.medicine_schedule_id,
+            )
+            .join(
+                Treatment,
+                Treatment.id == MedicineSchedule.treatment_id,
+            )
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .filter(
+                DailyMedication.is_active.is_(True),
+                MedicineSchedule.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+            )
+        )
+
+        if start_date is not None:
+            query = query.filter(DailyMedication.scheduled_date >= start_date)
+        if end_date is not None:
+            query = query.filter(DailyMedication.scheduled_date <= end_date)
+
+        records = query.all()
+
+        taken_count = 0
+        expected_count = 0
+
+        for record in records:
+            is_expected = False
+            if record.scheduled_date < today:
+                is_expected = True
+            elif record.scheduled_date == today:
+                if record.scheduled_time <= current_time or record.status == DailyMedicationStatus.VERIFIED:
+                    is_expected = True
+
+            if is_expected:
+                expected_count += 1
+                if record.status == DailyMedicationStatus.VERIFIED:
+                    taken_count += 1
+
+        return taken_count, expected_count
+
+    def get_7day_adherence_trend(
+        self,
+        db: Session,
+        today: date,
+        current_time: time,
+    ) -> list[dict]:
+        trend_items = []
+        for i in range(6, -1, -1):
+            day = today - timedelta(days=i)
+            taken, expected = self.get_medication_adherence_stats(
+                db=db,
+                today=today,
+                current_time=current_time,
+                start_date=day,
+                end_date=day,
+            )
+
+            if expected > 0:
+                pct = round((taken / expected) * 100.0, 1)
+            else:
+                pct = None
+
+            trend_items.append({
+                "date": day,
+                "percentage": pct,
+                "taken": taken,
+                "expected": expected,
+            })
+
+        return trend_items
+
     def get_recent_activities(
         self,
         db: Session,
         limit: int = 10,
     ):
         activities = []
-
-        # ==========================================
-        # COMPLAINTS
-        # ==========================================
 
         complaints = (
             db.query(Complaint)
@@ -97,10 +178,6 @@ class DashboardRepository:
                     "created_at": complaint.created_at.isoformat(),
                 }
             )
-
-        # ==========================================
-        # REFILL REQUESTS
-        # ==========================================
 
         refills = (
             db.query(RefillRequest)
@@ -128,10 +205,6 @@ class DashboardRepository:
                 }
             )
 
-        # ==========================================
-        # CONTROL SCHEDULE
-        # ==========================================
-
         schedules = (
             db.query(ControlSchedule)
             .filter(
@@ -157,10 +230,6 @@ class DashboardRepository:
                     "created_at": schedule.created_at.isoformat(),
                 }
             )
-
-        # ==========================================
-        # SORT ALL ACTIVITIES
-        # ==========================================
 
         activities.sort(
             key=lambda item: item["created_at"],

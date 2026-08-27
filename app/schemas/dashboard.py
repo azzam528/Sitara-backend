@@ -1,11 +1,10 @@
 from datetime import date
-
 from pydantic import BaseModel
 
 
 class DashboardSummary(BaseModel):
     active_patients: int
-    medication_adherence: float
+    medication_adherence: float | None = None
     high_risk_patients: int
     today_complaints: int
     critical_stock_items: int
@@ -19,7 +18,9 @@ class RiskSummary(BaseModel):
 
 class AdherenceTrendItem(BaseModel):
     date: date
-    percentage: float
+    percentage: float | None = None
+    taken: int = 0
+    expected: int = 0
 
 
 class RecentActivity(BaseModel):

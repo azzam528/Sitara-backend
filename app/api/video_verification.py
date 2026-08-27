@@ -26,6 +26,7 @@ router = APIRouter(
 
 service = VideoVerificationService()
 
+
 @router.post(
     "",
     response_model=VideoVerificationResponse,
@@ -35,35 +36,13 @@ def create_video(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_patient),
 ):
-
-    return service.create_video(
-        db,
-        video,
-        current_user,
-    )
-def create_video(
-    video: VideoVerificationCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-
     return service.create_video(
         db,
         video,
         current_user,
     )
 
-def create_video(
-    video: VideoVerificationCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
 
-    return service.create_video(
-        db,
-        video,
-        current_user,
-    )
 @router.get(
     "",
     response_model=list[VideoVerificationResponse],
@@ -74,12 +53,32 @@ def get_all_videos(
 ):
     return service.get_all(db)
 
-def get_all_videos(
+
+@router.get(
+    "/pending",
+    response_model=list[VideoVerificationResponse],
+)
+def get_pending_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
+    return service.get_pending(db)
 
-    return service.get_all(db)
+
+@router.get(
+    "/{video_id}",
+    response_model=VideoVerificationResponse,
+)
+def get_video_by_id(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.get_by_id(
+        db,
+        video_id,
+    )
+
 
 @router.put(
     "/{video_id}",
@@ -95,9 +94,9 @@ def update_video(
         db,
         video_id,
         video_data,
-        current_user,
     )
-    
+
+
 @router.delete(
     "/{video_id}",
     response_model=VideoVerificationResponse,
@@ -107,19 +106,7 @@ def delete_video(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.delete_video(
         db,
         video_id,
     )
-    
-@router.get(
-    "/pending",
-    response_model=list[VideoVerificationResponse],
-)
-def get_pending_videos(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
-):
-
-    return service.get_pending(db)

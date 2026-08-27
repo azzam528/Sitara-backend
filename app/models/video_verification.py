@@ -120,5 +120,14 @@ class VideoVerification(Base):
         back_populates="video_verifications",
     )
 
-    
-    
+    @property
+    def patient(self):
+        if self.medicine_schedule and self.medicine_schedule.treatment:
+            return self.medicine_schedule.treatment.patient
+        return None
+
+    @property
+    def treatment(self):
+        if self.medicine_schedule:
+            return self.medicine_schedule.treatment
+        return None
