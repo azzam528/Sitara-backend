@@ -481,6 +481,8 @@ def test_get_notifications_returns_timestamp_and_medicine_type():
     assert item["reference_id"] == _schedule_id("patient_a", time(12, 35))
     assert item["is_read"] is False
     assert "created_at" in item
-    assert item["created_at"]
-    parsed = datetime.fromisoformat(item["created_at"])
-    assert parsed.tzinfo is None or parsed.utcoffset() == timedelta(0)
+    assert item["created_at"].endswith("Z")
+    assert "updated_at" in item
+    assert item["updated_at"].endswith("Z")
+    parsed = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
+    assert parsed.utcoffset() == timedelta(0)

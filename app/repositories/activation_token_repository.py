@@ -11,10 +11,15 @@ class ActivationTokenRepository:
         self,
         db: Session,
         activation_token: ActivationToken,
+        commit: bool = True,
     ):
         db.add(activation_token)
-        db.commit()
-        db.refresh(activation_token)
+
+        if commit:
+            db.commit()
+            db.refresh(activation_token)
+        else:
+            db.flush()
 
         return activation_token
 

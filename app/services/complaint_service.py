@@ -121,6 +121,11 @@ class ComplaintService:
         # -------------------------------------------------
 
         if current_user.role == "patient":
+            patient_name = "Pasien"
+            if hasattr(current_user, "patient") and current_user.patient and current_user.patient.full_name:
+                patient_name = current_user.patient.full_name
+            elif complaint.treatment and complaint.treatment.patient and complaint.treatment.patient.full_name:
+                patient_name = complaint.treatment.patient.full_name
 
             nakes_list = self.user_repository.get_all_nakes(
                 db,
@@ -132,7 +137,7 @@ class ComplaintService:
                     db=db,
                     user_id=nakes.id,
                     title="Complaint Baru",
-                    message="Pasien mengirim complaint baru.",
+                    message=f"{patient_name} mengirim complaint baru.",
                     notification_type=NotificationType.COMPLAINT,
                     reference_type=NotificationReferenceType.COMPLAINT,
                     reference_id=complaint.id,

@@ -217,6 +217,12 @@ class VideoVerificationService:
         # NOTIFICATION TO NAKES
         # -------------------------------------------------
 
+        patient_name = "Pasien"
+        if patient and patient.full_name:
+            patient_name = patient.full_name
+        elif hasattr(current_user, "patient") and current_user.patient and current_user.patient.full_name:
+            patient_name = current_user.patient.full_name
+
         nakes_list = (
             db.query(User)
             .filter(
@@ -232,10 +238,7 @@ class VideoVerificationService:
                 db=db,
                 user_id=nakes.id,
                 title="Video Verifikasi Baru",
-                message=(
-                    "Pasien mengirim video "
-                    "verifikasi minum obat."
-                ),
+                message=f"{patient_name} mengirim video verifikasi minum obat.",
                 notification_type=(
                     NotificationType.VIDEO
                 ),
