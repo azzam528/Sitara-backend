@@ -5,6 +5,7 @@ from app.models.treatment import (
     Treatment,
     TreatmentStatus,
 )
+from app.models.user import User
 
 from app.repositories.patient_repository import PatientRepository
 from app.repositories.treatment_repository import TreatmentRepository
@@ -26,19 +27,21 @@ class TreatmentService:
     def get_all(
         self,
         db: Session,
+        current_user: User,
     ):
-
-        return self.treatment_repository.get_all(db)
+        return self.treatment_repository.get_all_by_facility(db, current_user.facility_id)
 
     def create(
         self,
         db: Session,
         treatment_data: TreatmentCreate,
+        current_user: User,
     ):
 
-        patient = self.patient_repository.get_by_id(
+        patient = self.patient_repository.get_by_id_and_facility(
             db,
             treatment_data.patient_id,
+            current_user.facility_id,
         )
 
         if patient is None:
@@ -79,11 +82,13 @@ class TreatmentService:
         self,
         db: Session,
         treatment_id: int,
+        current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
+        treatment = self.treatment_repository.get_by_id_and_facility(
             db,
             treatment_id,
+            current_user.facility_id,
         )
 
         if treatment is None:
@@ -109,11 +114,13 @@ class TreatmentService:
         db: Session,
         treatment_id: int,
         treatment_data: TreatmentUpdate,
+        current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
+        treatment = self.treatment_repository.get_by_id_and_facility(
             db,
             treatment_id,
+            current_user.facility_id,
         )
 
         if treatment is None:
@@ -142,11 +149,13 @@ class TreatmentService:
         self,
         db: Session,
         treatment_id: int,
+        current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
+        treatment = self.treatment_repository.get_by_id_and_facility(
             db,
             treatment_id,
+            current_user.facility_id,
         )
 
         if treatment is None:
@@ -159,3 +168,4 @@ class TreatmentService:
             db,
             treatment,
         )
+

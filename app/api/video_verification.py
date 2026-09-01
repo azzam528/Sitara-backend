@@ -51,7 +51,7 @@ def get_all_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_all(db)
+    return service.get_all(db, current_user)
 
 
 @router.get(
@@ -62,22 +62,7 @@ def get_pending_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_pending(db)
-
-
-@router.get(
-    "/{video_id}",
-    response_model=VideoVerificationResponse,
-)
-def get_video_by_id(
-    video_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
-):
-    return service.get_by_id(
-        db,
-        video_id,
-    )
+    return service.get_pending(db, current_user)
 
 
 @router.put(
@@ -109,4 +94,5 @@ def delete_video(
     return service.delete_video(
         db,
         video_id,
+        current_user,
     )

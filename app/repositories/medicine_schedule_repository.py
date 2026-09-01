@@ -4,6 +4,7 @@ from app.models.medicine_schedule import MedicineSchedule
 from app.models.patient import Patient
 from app.models.treatment import Treatment
 from app.models.medicine import Medicine
+from app.models.user import User
 
 
 class MedicineScheduleRepository:
@@ -37,6 +38,36 @@ class MedicineScheduleRepository:
             .first()
         )
 
+    def get_by_id_and_facility(
+        self,
+        db: Session,
+        schedule_id: int,
+        facility_id: int,
+    ):
+        return (
+            db.query(MedicineSchedule)
+            .join(
+                Treatment,
+                Treatment.id == MedicineSchedule.treatment_id,
+            )
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .join(
+                User,
+                User.id == Patient.user_id,
+            )
+            .filter(
+                MedicineSchedule.id == schedule_id,
+                MedicineSchedule.is_active == True,
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
+            )
+            .first()
+        )
+
     def get_all(
         self,
         db: Session,
@@ -46,6 +77,34 @@ class MedicineScheduleRepository:
             db.query(MedicineSchedule)
             .filter(
                 MedicineSchedule.is_active == True,
+            )
+            .all()
+        )
+
+    def get_all_by_facility(
+        self,
+        db: Session,
+        facility_id: int,
+    ):
+        return (
+            db.query(MedicineSchedule)
+            .join(
+                Treatment,
+                Treatment.id == MedicineSchedule.treatment_id,
+            )
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .join(
+                User,
+                User.id == Patient.user_id,
+            )
+            .filter(
+                MedicineSchedule.is_active == True,
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .all()
         )
@@ -153,3 +212,4 @@ class MedicineScheduleRepository:
             }
             for schedule, medicine_name in results
         ]
+

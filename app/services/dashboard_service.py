@@ -6,21 +6,7 @@ from sqlalchemy.orm import Session
 from app.repositories.dashboard_repository import (
     DashboardRepository,
 )
-
-
-def jakarta_timezone():
-    try:
-        return ZoneInfo("Asia/Jakarta")
-    except ZoneInfoNotFoundError:
-        return timezone(timedelta(hours=7))
-
-
-def today_in_jakarta() -> date:
-    return datetime.now(jakarta_timezone()).date()
-
-
-def now_time_in_jakarta() -> time:
-    return datetime.now(jakarta_timezone()).time()
+from app.models.user import User
 
 
 class DashboardService:
@@ -31,60 +17,24 @@ class DashboardService:
     def get_dashboard(
         self,
         db: Session,
+        current_user: User,
     ):
-        today = today_in_jakarta()
-        current_time = now_time_in_jakarta()
-        start_7d = today - timedelta(days=6)
+        facility_id = current_user.facility_id
 
         active_patients = (
-            self.repository.get_active_patients_count(db)
-        )
-
-        active_treatments, completed_treatments = (
-            self.repository.get_treatment_status_counts(db)
+            self.repository.get_active_patients_count(db, facility_id)
         )
 
         today_complaints = (
-            self.repository.get_today_complaints_count(db, today)
-        )
-
-        today_verifications = (
-            self.repository.get_today_verifications_count(db, today)
+            self.repository.get_today_complaints_count(db, facility_id)
         )
 
         critical_stock = (
-            self.repository.get_critical_stock(db)
+            self.repository.get_critical_stock(db, facility_id)
         )
 
         recent_activities = (
-            self.repository.get_recent_activities(db)
-        )
-
-        taken_7d, expected_7d = self.repository.get_medication_adherence_stats(
-            db=db,
-            today=today,
-            current_time=current_time,
-            start_date=start_7d,
-            end_date=today,
-        )
-
-        if expected_7d > 0:
-            overall_adherence = round((taken_7d / expected_7d) * 100.0, 1)
-        else:
-            taken_all, expected_all = self.repository.get_medication_adherence_stats(
-                db=db,
-                today=today,
-                current_time=current_time,
-            )
-            if expected_all > 0:
-                overall_adherence = round((taken_all / expected_all) * 100.0, 1)
-            else:
-                overall_adherence = None
-
-        adherence_trend = self.repository.get_7day_adherence_trend(
-            db=db,
-            today=today,
-            current_time=current_time,
+            self.repository.get_recent_activities(db, facility_id)
         )
 
         return {

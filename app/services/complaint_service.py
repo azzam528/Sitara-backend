@@ -1,11 +1,15 @@
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.patient import Patient
 from app.models.treatment import Treatment
+from app.models.complaint import (
+    Complaint,
+    ComplaintStatus,
+)
 from app.models.user import User
-from app.models.complaint import Complaint
-
 from app.models.notification import (
     NotificationType,
     NotificationReferenceType,
@@ -14,11 +18,9 @@ from app.models.notification import (
 from app.repositories.complaint_repository import (
     ComplaintRepository,
 )
-
 from app.repositories.treatment_repository import (
     TreatmentRepository,
 )
-
 from app.repositories.user_repository import (
     UserRepository,
 )
@@ -27,7 +29,6 @@ from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintUpdate,
 )
-
 from app.services.notification_service import (
     NotificationService,
 )
@@ -37,18 +38,19 @@ class ComplaintService:
 
     def __init__(self):
 
-        self.repository = ComplaintRepository()
+        self.complaint_repository = ComplaintRepository()
 
         self.treatment_repository = TreatmentRepository()
 
         self.user_repository = UserRepository()
-
         self.notification_service = NotificationService()
 
-    # =====================================================
-    # CREATE COMPLAINT
-    # NAKES + PATIENT
-    # =====================================================
+    def get_all(
+        self,
+        db: Session,
+        current_user: User,
+    ):
+        return self.complaint_repository.get_all_by_facility(db, current_user.facility_id)
 
     def create_complaint(
         self,
@@ -57,10 +59,17 @@ class ComplaintService:
         current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
-            db,
-            complaint_data.treatment_id,
-        )
+        if current_user.role == "nakes":
+            treatment = self.treatment_repository.get_by_id_and_facility(
+                db,
+                complaint_data.treatment_id,
+                current_user.facility_id,
+            )
+        else:
+            treatment = self.treatment_repository.get_by_id(
+                db,
+                complaint_data.treatment_id,
+            )
 
         if not treatment:
 
@@ -68,10 +77,6 @@ class ComplaintService:
                 status_code=404,
                 detail="Treatment not found",
             )
-
-        # -------------------------------------------------
-        # PATIENT OWNERSHIP CHECK
-        # -------------------------------------------------
 
         if current_user.role == "patient":
 
@@ -98,27 +103,17 @@ class ComplaintService:
                     detail="Treatment does not belong to this patient",
                 )
 
-        # -------------------------------------------------
-        # CREATE COMPLAINT
-        # -------------------------------------------------
-
         complaint = Complaint(
             treatment_id=complaint_data.treatment_id,
             category=complaint_data.category,
             description=complaint_data.description,
+            status=ComplaintStatus.PENDING,
         )
 
-        complaint = self.repository.create(
+        complaint = self.complaint_repository.create(
             db,
             complaint,
         )
-
-        # -------------------------------------------------
-        # NOTIFICATION
-        #
-        # Hanya ketika PATIENT membuat complaint,
-        # notify semua Nakes aktif.
-        # -------------------------------------------------
 
         if current_user.role == "patient":
             patient_name = "Pasien"
@@ -127,24 +122,9 @@ class ComplaintService:
             elif complaint.treatment and complaint.treatment.patient and complaint.treatment.patient.full_name:
                 patient_name = complaint.treatment.patient.full_name
 
-            nakes_list = self.user_repository.get_all_nakes(
+            nakes_list = self.user_repository.get_all_nakes_by_facility(
                 db,
-            )
-
-            patient_name = (
-                patient.full_name.strip()
-                if (patient and patient.full_name and patient.full_name.strip())
-                else (
-                    treatment.patient.full_name.strip()
-                    if (treatment and treatment.patient and treatment.patient.full_name and treatment.patient.full_name.strip())
-                    else ""
-                )
-            )
-
-            message = (
-                f"Pasien {patient_name} mengirim complaint baru."
-                if patient_name
-                else "Pasien mengirim complaint baru."
+                treatment.patient.user.facility_id,
             )
 
             for nakes in nakes_list:
@@ -161,32 +141,17 @@ class ComplaintService:
 
         return complaint
 
-    # =====================================================
-    # GET ALL
-    # NAKES
-    # =====================================================
-
-    def get_all(
-        self,
-        db: Session,
-    ):
-
-        return self.repository.get_all(db)
-
-    # =====================================================
-    # GET BY ID
-    # NAKES
-    # =====================================================
-
     def get_by_id(
         self,
         db: Session,
         complaint_id: int,
+        current_user: User,
     ):
 
-        complaint = self.repository.get_by_id(
+        complaint = self.complaint_repository.get_by_id_and_facility(
             db,
             complaint_id,
+            current_user.facility_id,
         )
 
         if not complaint:
@@ -198,21 +163,18 @@ class ComplaintService:
 
         return complaint
 
-    # =====================================================
-    # UPDATE
-    # NAKES
-    # =====================================================
-
     def update_complaint(
         self,
         db: Session,
         complaint_id: int,
         complaint_data: ComplaintUpdate,
+        current_user: User,
     ):
 
-        complaint = self.repository.get_by_id(
+        complaint = self.complaint_repository.get_by_id_and_facility(
             db,
             complaint_id,
+            current_user.facility_id,
         )
 
         if not complaint:
@@ -222,33 +184,27 @@ class ComplaintService:
                 detail="Complaint not found",
             )
 
-        previous_response = (complaint.response or "").strip()
+        if complaint_data.status is not None:
 
-        update_data = complaint_data.model_dump(
-            exclude_unset=True,
-        )
+            complaint.status = complaint_data.status
 
-        for key, value in update_data.items():
+            if complaint.status == ComplaintStatus.RESOLVED:
 
-            setattr(
-                complaint,
-                key,
-                value,
-            )
+                complaint.resolved_by = current_user.id
 
-        complaint = self.repository.update(
+                complaint.resolved_at = datetime.utcnow()
+
+        if complaint_data.resolution_note is not None:
+
+            complaint.resolution_note = complaint_data.resolution_note
+
+        complaint = self.complaint_repository.update(
             db,
             complaint,
         )
 
-        new_response = (complaint.response or "").strip()
-        response_just_set = (
-            "response" in update_data
-            and not previous_response
-            and bool(new_response)
-        )
+        if complaint.status == ComplaintStatus.RESOLVED:
 
-        if response_just_set:
             patient = (
                 db.query(Patient)
                 .join(
@@ -263,32 +219,30 @@ class ComplaintService:
             )
 
             if patient:
+
                 self.notification_service.create(
                     db=db,
                     user_id=patient.user_id,
-                    title="Balasan Keluhan",
-                    message="Petugas telah membalas keluhan Anda.",
-                    notification_type=NotificationType.COMPLAINT,
-                    reference_type=NotificationReferenceType.COMPLAINT,
+                    title="Keluhan Ditanggapi",
+                    message="Keluhan kamu telah ditanggapi. Silakan cek detailnya.",
+                    notification_type=(NotificationType.COMPLAINT),
+                    reference_type=(NotificationReferenceType.COMPLAINT),
                     reference_id=complaint.id,
                 )
 
         return complaint
 
-    # =====================================================
-    # DELETE
-    # NAKES
-    # =====================================================
-
     def delete_complaint(
         self,
         db: Session,
         complaint_id: int,
+        current_user: User,
     ):
 
-        complaint = self.repository.get_by_id(
+        complaint = self.complaint_repository.get_by_id_and_facility(
             db,
             complaint_id,
+            current_user.facility_id,
         )
 
         if not complaint:
@@ -298,15 +252,10 @@ class ComplaintService:
                 detail="Complaint not found",
             )
 
-        return self.repository.delete(
+        return self.complaint_repository.delete(
             db,
             complaint,
         )
-
-    # =====================================================
-    # GET MY COMPLAINTS
-    # PATIENT
-    # =====================================================
 
     def get_my_complaints(
         self,

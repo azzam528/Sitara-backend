@@ -227,6 +227,7 @@ class VideoVerificationService:
             db.query(User)
             .filter(
                 User.role == "nakes",
+                User.facility_id == current_user.facility_id,
                 User.is_active.is_(True),
             )
             .all()
@@ -259,9 +260,10 @@ class VideoVerificationService:
     def get_all(
         self,
         db: Session,
+        current_user: User,
     ):
 
-        return self.repository.get_all(db)
+        return self.repository.get_all_by_facility(db, current_user.facility_id)
 
     # =====================================================
     # GET BY ID
@@ -272,11 +274,13 @@ class VideoVerificationService:
         self,
         db: Session,
         video_id: int,
+        current_user: User,
     ):
 
-        video = self.repository.get_by_id(
+        video = self.repository.get_by_id_and_facility(
             db,
             video_id,
+            current_user.facility_id,
         )
 
         if not video:
@@ -298,11 +302,13 @@ class VideoVerificationService:
         db: Session,
         video_id: int,
         data: VideoVerificationUpdate,
+        current_user: User,
     ):
 
         video = self.get_by_id(
             db,
             video_id,
+            current_user,
         )
 
         # -------------------------------------------------
@@ -441,11 +447,13 @@ class VideoVerificationService:
         self,
         db: Session,
         video_id: int,
+        current_user: User,
     ):
 
         video = self.get_by_id(
             db,
             video_id,
+            current_user,
         )
 
         return self.repository.delete(
@@ -461,8 +469,10 @@ class VideoVerificationService:
     def get_pending(
         self,
         db: Session,
+        current_user: User,
     ):
 
-        return self.repository.get_pending(
-            db
+        return self.repository.get_pending_by_facility(
+            db,
+            current_user.facility_id,
         )

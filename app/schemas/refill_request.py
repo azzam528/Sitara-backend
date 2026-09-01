@@ -10,6 +10,17 @@ class RefillRequestStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class PickupFacilityResponse(BaseModel):
+    id: int
+    name: str
+    address: str | None
+    phone: str | None
+    latitude: float | None
+    longitude: float | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RefillCreate(BaseModel):
 
     treatment_id: int
@@ -57,6 +68,8 @@ class RefillResponse(BaseModel):
     created_at: datetime
 
     updated_at: datetime
+
+    pickup_facility: PickupFacilityResponse | None = None
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -107,5 +120,7 @@ class RefillListResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    pickup_facility: PickupFacilityResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)

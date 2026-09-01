@@ -3,7 +3,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.patient import Patient
-from app.models.treatment import Treatment, TreatmentStatus
+from app.models.user import User
+from app.models.treatment import Treatment
 from app.models.complaint import Complaint
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
@@ -18,11 +19,14 @@ class DashboardRepository:
     def get_active_patients_count(
         self,
         db: Session,
+        facility_id: int,
     ) -> int:
         return (
             db.query(func.count(Patient.id))
+            .join(User, User.id == Patient.user_id)
             .filter(
                 Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .scalar()
             or 0
@@ -55,33 +59,21 @@ class DashboardRepository:
     def get_today_complaints_count(
         self,
         db: Session,
-        today: date | None = None,
+        facility_id: int,
     ) -> int:
         if today is None:
             today = date.today()
         return (
             db.query(func.count(Complaint.id))
+            .join(Treatment, Treatment.id == Complaint.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 func.date(Complaint.created_at) == today,
                 Complaint.is_active.is_(True),
-            )
-            .scalar()
-            or 0
-        )
-
-    def get_today_verifications_count(
-        self,
-        db: Session,
-        today: date,
-    ) -> int:
-        return (
-            db.query(func.count(VideoVerification.id))
-            .filter(
-                or_(
-                    func.date(VideoVerification.created_at) == today,
-                    VideoVerification.verification_date == today,
-                ),
-                VideoVerification.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .scalar()
             or 0
@@ -90,6 +82,7 @@ class DashboardRepository:
     def get_critical_stock(
         self,
         db: Session,
+        facility_id: int,
         threshold: int = 7,
     ):
         return (
@@ -102,9 +95,15 @@ class DashboardRepository:
                 Medicine,
                 Medicine.id == MedicineSchedule.medicine_id,
             )
+            .join(Treatment, Treatment.id == MedicineSchedule.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 MedicineSchedule.is_active.is_(True),
                 MedicineSchedule.quantity_remaining <= threshold,
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .all()
         )
@@ -198,14 +197,21 @@ class DashboardRepository:
     def get_recent_activities(
         self,
         db: Session,
-        limit: int = 5,
+        facility_id: int,
+        limit: int = 10,
     ):
         activities = []
 
         complaints = (
             db.query(Complaint)
+            .join(Treatment, Treatment.id == Complaint.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 Complaint.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .order_by(
                 Complaint.created_at.desc(),
@@ -232,8 +238,14 @@ class DashboardRepository:
 
         refills = (
             db.query(RefillRequest)
+            .join(Treatment, Treatment.id == RefillRequest.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 RefillRequest.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .order_by(
                 RefillRequest.created_at.desc(),
@@ -264,8 +276,14 @@ class DashboardRepository:
 
         schedules = (
             db.query(ControlSchedule)
+            .join(Treatment, Treatment.id == ControlSchedule.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 ControlSchedule.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
             )
             .order_by(
                 ControlSchedule.created_at.desc(),

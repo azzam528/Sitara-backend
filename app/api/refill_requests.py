@@ -62,7 +62,7 @@ def get_all_refills(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_all(db)
+    return service.get_all(db, current_user)
 
 
 # =========================================================
@@ -82,7 +82,7 @@ def get_my_refills(
 ):
     return service.get_my_refills(
         db,
-        current_user.id,
+        current_user,
     )
 
 
@@ -119,6 +119,7 @@ def get_refill(
     return service.get_by_id(
         db,
         refill_id,
+        current_user,
     )
 
 
@@ -152,4 +153,5 @@ def delete_refill(
     return service.delete_refill(
         db,
         refill_id,
+        current_user,
     )
