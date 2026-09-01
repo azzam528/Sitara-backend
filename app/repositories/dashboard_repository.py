@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.patient import Patient
 from app.models.user import User
-from app.models.treatment import Treatment
+from app.models.treatment import Treatment, TreatmentStatus
 from app.models.complaint import Complaint
 from app.models.medicine import Medicine
 from app.models.medicine_schedule import MedicineSchedule
@@ -19,51 +19,93 @@ class DashboardRepository:
     def get_active_patients_count(
         self,
         db: Session,
-        facility_id: int,
+        facility_id: int | None = None,
     ) -> int:
-        return (
+        query = (
             db.query(func.count(Patient.id))
             .join(User, User.id == Patient.user_id)
             .filter(
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .scalar()
-            or 0
         )
+        if facility_id is not None:
+            query = query.filter(User.facility_id == facility_id)
+        else:
+            query = query.filter(User.facility_id.is_(None))
+        return query.scalar() or 0
 
     def get_treatment_status_counts(
         self,
         db: Session,
+        facility_id: int | None = None,
     ) -> tuple[int, int]:
-        active_count = (
+        active_query = (
             db.query(func.count(Treatment.id))
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 Treatment.status == TreatmentStatus.ACTIVE,
                 Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
             )
-            .scalar()
-            or 0
         )
-        completed_count = (
+        completed_query = (
             db.query(func.count(Treatment.id))
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
             .filter(
                 Treatment.status == TreatmentStatus.COMPLETED,
                 Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
             )
-            .scalar()
-            or 0
         )
-        return active_count, completed_count
+        if facility_id is not None:
+            active_query = active_query.filter(User.facility_id == facility_id)
+            completed_query = completed_query.filter(User.facility_id == facility_id)
+        else:
+            active_query = active_query.filter(User.facility_id.is_(None))
+            completed_query = completed_query.filter(User.facility_id.is_(None))
+
+        return (active_query.scalar() or 0), (completed_query.scalar() or 0)
+
+    def get_today_verifications_count(
+        self,
+        db: Session,
+        today: date,
+        facility_id: int | None = None,
+    ) -> int:
+        query = (
+            db.query(func.count(VideoVerification.id))
+            .join(MedicineSchedule, MedicineSchedule.id == VideoVerification.medicine_schedule_id)
+            .join(Treatment, Treatment.id == MedicineSchedule.treatment_id)
+            .join(Patient, Patient.id == Treatment.patient_id)
+            .join(User, User.id == Patient.user_id)
+            .filter(
+                or_(
+                    func.date(VideoVerification.created_at) == today,
+                    VideoVerification.verification_date == today,
+                ),
+                VideoVerification.is_active.is_(True),
+                MedicineSchedule.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+            )
+        )
+        if facility_id is not None:
+            query = query.filter(User.facility_id == facility_id)
+        else:
+            query = query.filter(User.facility_id.is_(None))
+        return query.scalar() or 0
 
     def get_today_complaints_count(
         self,
         db: Session,
-        facility_id: int,
+        facility_id: int | None = None,
+        today: date | None = None,
     ) -> int:
         if today is None:
             today = date.today()
-        return (
+        query = (
             db.query(func.count(Complaint.id))
             .join(Treatment, Treatment.id == Complaint.treatment_id)
             .join(Patient, Patient.id == Treatment.patient_id)
@@ -73,19 +115,22 @@ class DashboardRepository:
                 Complaint.is_active.is_(True),
                 Treatment.is_active.is_(True),
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .scalar()
-            or 0
         )
+        if facility_id is not None:
+            query = query.filter(User.facility_id == facility_id)
+        else:
+            query = query.filter(User.facility_id.is_(None))
+
+        return query.scalar() or 0
 
     def get_critical_stock(
         self,
         db: Session,
-        facility_id: int,
+        facility_id: int | None = None,
         threshold: int = 7,
     ):
-        return (
+        query = (
             db.query(
                 MedicineSchedule.medicine_id,
                 Medicine.name,
@@ -103,10 +148,14 @@ class DashboardRepository:
                 MedicineSchedule.quantity_remaining <= threshold,
                 Treatment.is_active.is_(True),
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .all()
         )
+        if facility_id is not None:
+            query = query.filter(User.facility_id == facility_id)
+        else:
+            query = query.filter(User.facility_id.is_(None))
+
+        return query.all()
 
     def get_medication_adherence_stats(
         self,
@@ -115,6 +164,7 @@ class DashboardRepository:
         current_time: time,
         start_date: date | None = None,
         end_date: date | None = None,
+        facility_id: int | None = None,
     ) -> tuple[int, int]:
         query = (
             db.query(DailyMedication)
@@ -130,6 +180,10 @@ class DashboardRepository:
                 Patient,
                 Patient.id == Treatment.patient_id,
             )
+            .join(
+                User,
+                User.id == Patient.user_id,
+            )
             .filter(
                 DailyMedication.is_active.is_(True),
                 MedicineSchedule.is_active.is_(True),
@@ -137,6 +191,10 @@ class DashboardRepository:
                 Patient.is_active.is_(True),
             )
         )
+        if facility_id is not None:
+            query = query.filter(User.facility_id == facility_id)
+        else:
+            query = query.filter(User.facility_id.is_(None))
 
         if start_date is not None:
             query = query.filter(DailyMedication.scheduled_date >= start_date)
@@ -168,6 +226,7 @@ class DashboardRepository:
         db: Session,
         today: date,
         current_time: time,
+        facility_id: int | None = None,
     ) -> list[dict]:
         trend_items = []
         for i in range(6, -1, -1):
@@ -178,6 +237,7 @@ class DashboardRepository:
                 current_time=current_time,
                 start_date=day,
                 end_date=day,
+                facility_id=facility_id,
             )
 
             if expected > 0:
@@ -197,12 +257,12 @@ class DashboardRepository:
     def get_recent_activities(
         self,
         db: Session,
-        facility_id: int,
+        facility_id: int | None = None,
         limit: int = 10,
     ):
         activities = []
 
-        complaints = (
+        complaints_q = (
             db.query(Complaint)
             .join(Treatment, Treatment.id == Complaint.treatment_id)
             .join(Patient, Patient.id == Treatment.patient_id)
@@ -211,11 +271,15 @@ class DashboardRepository:
                 Complaint.is_active.is_(True),
                 Treatment.is_active.is_(True),
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .order_by(
-                Complaint.created_at.desc(),
-            )
+        )
+        if facility_id is not None:
+            complaints_q = complaints_q.filter(User.facility_id == facility_id)
+        else:
+            complaints_q = complaints_q.filter(User.facility_id.is_(None))
+
+        complaints = (
+            complaints_q.order_by(Complaint.created_at.desc())
             .limit(limit)
             .all()
         )
@@ -236,7 +300,7 @@ class DashboardRepository:
                 }
             )
 
-        refills = (
+        refills_q = (
             db.query(RefillRequest)
             .join(Treatment, Treatment.id == RefillRequest.treatment_id)
             .join(Patient, Patient.id == Treatment.patient_id)
@@ -245,11 +309,15 @@ class DashboardRepository:
                 RefillRequest.is_active.is_(True),
                 Treatment.is_active.is_(True),
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .order_by(
-                RefillRequest.created_at.desc(),
-            )
+        )
+        if facility_id is not None:
+            refills_q = refills_q.filter(User.facility_id == facility_id)
+        else:
+            refills_q = refills_q.filter(User.facility_id.is_(None))
+
+        refills = (
+            refills_q.order_by(RefillRequest.created_at.desc())
             .limit(limit)
             .all()
         )
@@ -274,7 +342,7 @@ class DashboardRepository:
                 }
             )
 
-        schedules = (
+        schedules_q = (
             db.query(ControlSchedule)
             .join(Treatment, Treatment.id == ControlSchedule.treatment_id)
             .join(Patient, Patient.id == Treatment.patient_id)
@@ -283,11 +351,15 @@ class DashboardRepository:
                 ControlSchedule.is_active.is_(True),
                 Treatment.is_active.is_(True),
                 Patient.is_active.is_(True),
-                User.facility_id == facility_id,
             )
-            .order_by(
-                ControlSchedule.created_at.desc(),
-            )
+        )
+        if facility_id is not None:
+            schedules_q = schedules_q.filter(User.facility_id == facility_id)
+        else:
+            schedules_q = schedules_q.filter(User.facility_id.is_(None))
+
+        schedules = (
+            schedules_q.order_by(ControlSchedule.created_at.desc())
             .limit(limit)
             .all()
         )

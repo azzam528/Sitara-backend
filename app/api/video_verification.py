@@ -65,6 +65,22 @@ def get_pending_videos(
     return service.get_pending(db, current_user)
 
 
+@router.get(
+    "/{video_id}",
+    response_model=VideoVerificationResponse,
+)
+def get_video_by_id(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.get_by_id(
+        db,
+        video_id,
+        current_user,
+    )
+
+
 @router.put(
     "/{video_id}",
     response_model=VideoVerificationResponse,
@@ -79,6 +95,7 @@ def update_video(
         db,
         video_id,
         video_data,
+        current_user,
     )
 
 
