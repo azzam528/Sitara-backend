@@ -269,30 +269,39 @@ class PatientService:
 
             activation_url = self._build_activation_url(raw_token)
 
-         whatsapp_url = self._build_activation_whatsapp_url(
-                patient.full_name,
-                username,
-                phone,
-                activation_url,
+<<<<<<< HEAD
+        whatsapp_url = self._build_activation_whatsapp_url(
+            patient.full_name,
+            username,
+            phone,
+            activation_url,
+        )
+
+        # -------------------------------------------------
+        # Return
+        # -------------------------------------------------
+=======
+            # -------------------------------------------------
+            # 5. WhatsApp Message
+            # -------------------------------------------------
+
+            message = (
+                f"Halo {patient.full_name},\n\n"
+                f"Akun SITARA Anda telah dibuat.\n\n"
+                f"Username: {username}\n\n"
+                f"Silakan aktivasi akun dan buat password "
+                f"Anda melalui link berikut:\n\n"
+                f"{activation_url}\n\n"
+                f"Link aktivasi berlaku selama 24 jam.\n\n"
+                f"Terima kasih."
             )
 
-            # -------------------------------------------------
-            # Single Commit for the Entire Transaction
-            # -------------------------------------------------
-
-            db.commit()
-            db.refresh(patient)
+            whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
 
             # -------------------------------------------------
-            # Return
+            # 6. Single Commit for the Entire Transaction
             # -------------------------------------------------
-
-            return {
-                "patient": patient,
-                "username": username,
-                "activation_url": activation_url,
-                "whatsapp_url": whatsapp_url,
-            }
+>>>>>>> origin/haikal
 
             db.commit()
             db.refresh(patient)
