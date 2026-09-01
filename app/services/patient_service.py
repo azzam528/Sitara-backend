@@ -89,6 +89,27 @@ class PatientService:
 
         return f"{base_url}/activate?token={raw_token}"
 
+    def _build_activation_whatsapp_url(
+        self,
+        full_name: str,
+        username: str,
+        phone: str,
+        activation_url: str,
+    ) -> str:
+
+        message = (
+            f"Halo {full_name},\n\n"
+            f"Akun SITARA Anda telah dibuat.\n\n"
+            f"Username: {username}\n\n"
+            f"Silakan aktivasi akun dan buat password "
+            f"Anda melalui link berikut:\n\n"
+            f"{activation_url}\n\n"
+            f"Link aktivasi berlaku selama 24 jam.\n\n"
+            f"Terima kasih."
+        )
+
+        return f"https://wa.me/{phone}?text={quote(message)}"
+
     # =====================================================
     # CREATE PATIENT
     # =====================================================
@@ -239,22 +260,12 @@ class PatientService:
 
         activation_url = self._build_activation_url(raw_token)
 
-        # -------------------------------------------------
-        # WhatsApp Message
-        # -------------------------------------------------
-
-        message = (
-            f"Halo {patient.full_name},\n\n"
-            f"Akun SITARA Anda telah dibuat.\n\n"
-            f"Username: {username}\n\n"
-            f"Silakan aktivasi akun dan buat password "
-            f"Anda melalui link berikut:\n\n"
-            f"{activation_url}\n\n"
-            f"Link aktivasi berlaku selama 24 jam.\n\n"
-            f"Terima kasih."
+        whatsapp_url = self._build_activation_whatsapp_url(
+            patient.full_name,
+            username,
+            phone,
+            activation_url,
         )
-
-        whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
 
         # -------------------------------------------------
         # Return
@@ -353,6 +364,78 @@ class PatientService:
             db,
             patient,
         )
+
+    # =====================================================
+    # RESEND ACTIVATION
+    # =====================================================
+
+    def resend_activation(
+        self,
+        db: Session,
+        patient_id: int,
+        current_user: User,
+    ):
+
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found",
+            )
+
+        user = self.user_repository.get_by_id(
+            db,
+            patient.user_id,
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="User tidak ditemukan.",
+            )
+
+        if not user.must_change_password:
+            raise HTTPException(
+                status_code=400,
+                detail="Akun sudah diaktivasi.",
+            )
+
+        self.activation_token_repository.invalidate_user_tokens(
+            db,
+            user.id,
+        )
+
+        raw_token = generate_activation_token()
+        token_hash = hash_activation_token(raw_token)
+
+        activation_token = ActivationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=(datetime.utcnow() + timedelta(hours=24)),
+        )
+
+        self.activation_token_repository.create(
+            db,
+            activation_token,
+        )
+
+        activation_url = self._build_activation_url(raw_token)
+        whatsapp_url = self._build_activation_whatsapp_url(
+            patient.full_name,
+            user.username,
+            patient.phone,
+            activation_url,
+        )
+
+        return {
+            "message": "Link aktivasi baru berhasil dibuat.",
+            "whatsapp_url": whatsapp_url,
+        }
 
     # =====================================================
     # PATIENT PROFILE

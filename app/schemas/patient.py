@@ -112,3 +112,10 @@ class PatientCreateResponse(BaseModel):
     activation_url: str
 
     whatsapp_url: str
+
+
+class ActivationResendResponse(BaseModel):
+
+    message: str
+
+    whatsapp_url: str
