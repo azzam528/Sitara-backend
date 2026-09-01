@@ -82,7 +82,7 @@ def get_my_refills(
 ):
     return service.get_my_refills(
         db,
-        current_user.id,
+        current_user,
     )
 
 

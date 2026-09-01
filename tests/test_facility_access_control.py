@@ -64,8 +64,8 @@ def client():
 @pytest.fixture(scope="function")
 def setup_data(db_session: Session):
     # Facility A & B
-    facility_a = HealthFacility(name="Facility A")
-    facility_b = HealthFacility(name="Facility B")
+    facility_a = HealthFacility(name="Facility A", address="Jl. Cimenyan", latitude=-6.873, longitude=107.65)
+    facility_b = HealthFacility(name="Facility B", address="Jl. Antapani", latitude=-6.9, longitude=107.6)
     db_session.add_all([facility_a, facility_b])
     db_session.commit()
 
@@ -333,3 +333,41 @@ def test_facility_isolation_notification_routing(client: TestClient, db_session:
     # Nakes B DOES NOT receive it
     nb = db_session.query(Notification).filter(Notification.user_id == setup_data["nakes_b_id"]).all()
     assert len(nb) == 0
+
+def test_patient_refill_pickup_facility(client: TestClient, setup_data: dict):
+    # Patient A creates a refill request
+    res_create = client.post("/refills/my", json={
+        "treatment_id": setup_data["treatment_a_id"],
+        "medicine_id": setup_data["medicine_id"],
+        "quantity": 10,
+        "reason": "Test"
+    }, headers={"Authorization": f"Bearer {setup_data['patient_a_token']}"})
+    assert res_create.status_code == 200
+
+    # Patient A gets their refills
+    res_a = client.get("/refills/my", headers={"Authorization": f"Bearer {setup_data['patient_a_token']}"})
+    assert res_a.status_code == 200
+    data_a = res_a.json()
+    print("DEBUG DATA_A:", data_a)
+    assert len(data_a) > 0
+    # pickup facility should be Facility A
+    assert data_a[0]["pickup_facility"]["name"] == "Facility A"
+    assert data_a[0]["pickup_facility"]["latitude"] == -6.873
+    assert data_a[0]["pickup_facility"]["longitude"] == 107.65
+
+    # Patient B gets their refills
+    res_b = client.get("/refills/my", headers={"Authorization": f"Bearer {setup_data['patient_b_token']}"})
+    assert res_b.status_code == 200
+    data_b = res_b.json()
+    # pickup facility should be Facility B
+    assert data_b[0]["pickup_facility"]["name"] == "Facility B"
+    assert data_b[0]["pickup_facility"]["latitude"] == -6.9
+
+    # Nakes A gets refill of Patient A, should have Facility A
+    res_nakes_a = client.get(f"/refills/{data_a[0]['id']}", headers={"Authorization": f"Bearer {setup_data['nakes_a_token']}"})
+    assert res_nakes_a.status_code == 200
+    assert res_nakes_a.json()["pickup_facility"]["name"] == "Facility A"
+
+    # Nakes B tries to get refill of Patient A, should be forbidden
+    res_nakes_b = client.get(f"/refills/{data_a[0]['id']}", headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"})
+    assert res_nakes_b.status_code == 404

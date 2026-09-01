@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     String,
     Text,
 )
@@ -31,6 +32,10 @@ class HealthFacility(Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

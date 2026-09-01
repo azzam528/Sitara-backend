@@ -31,6 +31,9 @@ from app.repositories.user_repository import (
 from app.schemas.refill_request import (
     RefillCreate,
     RefillUpdate,
+    RefillResponse,
+    RefillListResponse,
+    PickupFacilityResponse,
 )
 
 from app.services.notification_service import (
@@ -51,12 +54,34 @@ class RefillService:
         self.user_repository = UserRepository()
         self.notification_service = NotificationService()
 
+    def _get_pickup_facility(self, current_user: User) -> PickupFacilityResponse:
+        print("\n\n!!! FACILITY ID:", current_user.facility_id)
+        print("!!! FACILITY:", getattr(current_user, "facility", "NO_FAC"))
+        if hasattr(current_user, "facility") and current_user.facility:
+            print("!!! FAC_DICT:", current_user.facility.__dict__)
+            
+        if not current_user.facility_id or not current_user.facility or not current_user.facility.is_active:
+            raise HTTPException(
+                status_code=404,
+                detail="Pickup facility not found or inactive",
+            )
+        return PickupFacilityResponse.model_validate(current_user.facility)
+
     def get_all(
         self,
         db: Session,
         current_user: User,
     ):
-        return self.refill_repository.get_all_by_facility(db, current_user.facility_id)
+        refills = self.refill_repository.get_all_by_facility(db, current_user.facility_id)
+        pickup_facility = self._get_pickup_facility(current_user)
+        
+        response = []
+        for refill in refills:
+            refill_data = RefillListResponse.model_validate(refill)
+            refill_data.pickup_facility = pickup_facility
+            response.append(refill_data.model_dump())
+        
+        return response
 
     def create_refill(
         self,
@@ -169,7 +194,9 @@ class RefillService:
                     reference_id=refill.id,
                 )
 
-        return refill
+        response = RefillResponse.model_validate(refill)
+        response.pickup_facility = self._get_pickup_facility(current_user)
+        return response.model_dump()
 
     # =====================================================
     # GET BY ID
@@ -196,7 +223,9 @@ class RefillService:
                 detail="Refill request not found",
             )
 
-        return refill
+        response = RefillListResponse.model_validate(refill)
+        response.pickup_facility = self._get_pickup_facility(current_user)
+        return response.model_dump()
 
     # =====================================================
     # UPDATE
@@ -300,7 +329,9 @@ class RefillService:
                     reference_id=refill.id,
                 )
 
-        return refill
+        response = RefillResponse.model_validate(refill)
+        response.pickup_facility = self._get_pickup_facility(current_user)
+        return response.model_dump()
 
     # =====================================================
     # DELETE
@@ -327,10 +358,13 @@ class RefillService:
                 detail="Refill request not found",
             )
 
-        return self.refill_repository.delete(
+        deleted_refill = self.refill_repository.delete(
             db,
             refill,
         )
+        response = RefillResponse.model_validate(deleted_refill)
+        response.pickup_facility = self._get_pickup_facility(current_user)
+        return response.model_dump()
 
     # =====================================================
     # GET MY REFILLS
@@ -340,10 +374,10 @@ class RefillService:
     def get_my_refills(
         self,
         db: Session,
-        user_id: int,
+        current_user: User,
     ):
 
-        return (
+        refills = (
             db.query(RefillRequest)
             .join(
                 Treatment,
@@ -354,7 +388,7 @@ class RefillService:
                 Treatment.patient_id == Patient.id,
             )
             .filter(
-                Patient.user_id == user_id,
+                Patient.user_id == current_user.id,
                 Patient.is_active.is_(True),
                 Treatment.is_active.is_(True),
                 RefillRequest.is_active.is_(True),
@@ -364,4 +398,15 @@ class RefillService:
             )
             .all()
         )
+
+        pickup_facility = self._get_pickup_facility(current_user)
+        
+        response = []
+        for refill in refills:
+            refill_data = RefillResponse.model_validate(refill)
+            refill_data.pickup_facility = pickup_facility
+            response.append(refill_data.model_dump())
+            
+        print("DEBUG SERVICE RETURN:", response)
+        return response
 
