@@ -8,6 +8,7 @@ from app.models.control_schedule import (
 
 from app.models.treatment import Treatment
 from app.models.patient import Patient
+from app.models.user import User
 
 from app.models.notification import (
     NotificationType,
@@ -50,11 +51,13 @@ class ControlScheduleService:
         self,
         db: Session,
         schedule_data: ControlScheduleCreate,
+        current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
+        treatment = self.treatment_repository.get_by_id_and_facility(
             db,
             schedule_data.treatment_id,
+            current_user.facility_id,
         )
 
         if not treatment:
@@ -127,9 +130,10 @@ class ControlScheduleService:
     def get_all(
         self,
         db: Session,
+        current_user: User,
     ):
 
-        return self.control_schedule_repository.get_all(db)
+        return self.control_schedule_repository.get_all_by_facility(db, current_user.facility_id)
 
     # =====================================================
     # GET BY ID
@@ -139,11 +143,13 @@ class ControlScheduleService:
         self,
         db: Session,
         schedule_id: int,
+        current_user: User,
     ):
 
-        schedule = self.control_schedule_repository.get_by_id(
+        schedule = self.control_schedule_repository.get_by_id_and_facility(
             db,
             schedule_id,
+            current_user.facility_id,
         )
 
         if not schedule:
@@ -164,11 +170,13 @@ class ControlScheduleService:
         db: Session,
         schedule_id: int,
         schedule_data: ControlScheduleUpdate,
+        current_user: User,
     ):
 
-        schedule = self.control_schedule_repository.get_by_id(
+        schedule = self.control_schedule_repository.get_by_id_and_facility(
             db,
             schedule_id,
+            current_user.facility_id,
         )
 
         if not schedule:
@@ -207,11 +215,13 @@ class ControlScheduleService:
         self,
         db: Session,
         schedule_id: int,
+        current_user: User,
     ):
 
-        schedule = self.control_schedule_repository.get_by_id(
+        schedule = self.control_schedule_repository.get_by_id_and_facility(
             db,
             schedule_id,
+            current_user.facility_id,
         )
 
         if not schedule:

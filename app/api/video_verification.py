@@ -26,6 +26,7 @@ router = APIRouter(
 
 service = VideoVerificationService()
 
+
 @router.post(
     "",
     response_model=VideoVerificationResponse,
@@ -35,35 +36,13 @@ def create_video(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_patient),
 ):
-
-    return service.create_video(
-        db,
-        video,
-        current_user,
-    )
-def create_video(
-    video: VideoVerificationCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
-
     return service.create_video(
         db,
         video,
         current_user,
     )
 
-def create_video(
-    video: VideoVerificationCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_patient),
-):
 
-    return service.create_video(
-        db,
-        video,
-        current_user,
-    )
 @router.get(
     "",
     response_model=list[VideoVerificationResponse],
@@ -72,14 +51,19 @@ def get_all_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_all(db)
+    return service.get_all(db, current_user)
 
-def get_all_videos(
+
+@router.get(
+    "/pending",
+    response_model=list[VideoVerificationResponse],
+)
+def get_pending_videos(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
+    return service.get_pending(db, current_user)
 
-    return service.get_all(db)
 
 @router.put(
     "/{video_id}",
@@ -97,7 +81,8 @@ def update_video(
         video_data,
         current_user,
     )
-    
+
+
 @router.delete(
     "/{video_id}",
     response_model=VideoVerificationResponse,
@@ -107,19 +92,8 @@ def delete_video(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-
     return service.delete_video(
         db,
         video_id,
+        current_user,
     )
-    
-@router.get(
-    "/pending",
-    response_model=list[VideoVerificationResponse],
-)
-def get_pending_videos(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_nakes),
-):
-
-    return service.get_pending(db)

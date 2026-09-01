@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.repositories.dashboard_repository import (
     DashboardRepository,
 )
+from app.models.user import User
 
 
 class DashboardService:
@@ -13,22 +14,24 @@ class DashboardService:
     def get_dashboard(
         self,
         db: Session,
+        current_user: User,
     ):
+        facility_id = current_user.facility_id
 
         active_patients = (
-            self.repository.get_active_patients_count(db)
+            self.repository.get_active_patients_count(db, facility_id)
         )
 
         today_complaints = (
-            self.repository.get_today_complaints_count(db)
+            self.repository.get_today_complaints_count(db, facility_id)
         )
 
         critical_stock = (
-            self.repository.get_critical_stock(db)
+            self.repository.get_critical_stock(db, facility_id)
         )
 
         recent_activities = (
-            self.repository.get_recent_activities(db)
+            self.repository.get_recent_activities(db, facility_id)
         )
 
         return {

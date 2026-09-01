@@ -1,6 +1,6 @@
-from sqlalchemy.orm import Session
-from app.models.patient import Patient
 from sqlalchemy.orm import Session, joinedload
+from app.models.patient import Patient
+from app.models.user import User
 from app.models.treatment import (
     Treatment,
     TreatmentStatus,
@@ -36,6 +36,32 @@ class TreatmentRepository:
             .first()
         )
 
+    def get_by_id_and_facility(
+        self,
+        db: Session,
+        treatment_id: int,
+        facility_id: int,
+    ):
+        return (
+            db.query(Treatment)
+            .options(joinedload(Treatment.patient))
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .join(
+                User,
+                User.id == Patient.user_id,
+            )
+            .filter(
+                Treatment.id == treatment_id,
+                Treatment.is_active == True,
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
+            )
+            .first()
+        )
+
     def get_all(
         self,
         db: Session,
@@ -44,6 +70,30 @@ class TreatmentRepository:
             db.query(Treatment)
             .options(joinedload(Treatment.patient))
             .filter(Treatment.is_active == True)
+            .all()
+        )
+
+    def get_all_by_facility(
+        self,
+        db: Session,
+        facility_id: int,
+    ):
+        return (
+            db.query(Treatment)
+            .options(joinedload(Treatment.patient))
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .join(
+                User,
+                User.id == Patient.user_id,
+            )
+            .filter(
+                Treatment.is_active == True,
+                Patient.is_active.is_(True),
+                User.facility_id == facility_id,
+            )
             .all()
         )
 

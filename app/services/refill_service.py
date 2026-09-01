@@ -49,13 +49,14 @@ class RefillService:
         self.medicine_repository = MedicineRepository()
 
         self.user_repository = UserRepository()
-
         self.notification_service = NotificationService()
 
-    # =====================================================
-    # CREATE REFILL
-    # NAKES + PATIENT
-    # =====================================================
+    def get_all(
+        self,
+        db: Session,
+        current_user: User,
+    ):
+        return self.refill_repository.get_all_by_facility(db, current_user.facility_id)
 
     def create_refill(
         self,
@@ -64,24 +65,25 @@ class RefillService:
         current_user: User,
     ):
 
-        treatment = self.treatment_repository.get_by_id(
-            db,
-            refill_data.treatment_id,
-        )
+        if current_user.role == "nakes":
+            treatment = self.treatment_repository.get_by_id_and_facility(
+                db,
+                refill_data.treatment_id,
+                current_user.facility_id,
+            )
+        else:
+            treatment = self.treatment_repository.get_by_id(
+                db,
+                refill_data.treatment_id,
+            )
 
         if not treatment:
-
             raise HTTPException(
                 status_code=404,
                 detail="Treatment not found",
             )
 
-        # -------------------------------------------------
-        # PATIENT OWNERSHIP CHECK
-        # -------------------------------------------------
-
         if current_user.role == "patient":
-
             patient = (
                 db.query(Patient)
                 .filter(
@@ -150,8 +152,9 @@ class RefillService:
             elif refill.treatment and refill.treatment.patient and refill.treatment.patient.full_name:
                 patient_name = refill.treatment.patient.full_name
 
-            nakes_list = self.user_repository.get_all_nakes(
+            nakes_list = self.user_repository.get_all_nakes_by_facility(
                 db,
+                treatment.patient.user.facility_id,
             )
 
             for nakes in nakes_list:
@@ -169,18 +172,6 @@ class RefillService:
         return refill
 
     # =====================================================
-    # GET ALL
-    # NAKES
-    # =====================================================
-
-    def get_all(
-        self,
-        db: Session,
-    ):
-
-        return self.refill_repository.get_all(db)
-
-    # =====================================================
     # GET BY ID
     # NAKES
     # =====================================================
@@ -189,11 +180,13 @@ class RefillService:
         self,
         db: Session,
         refill_id: int,
+        current_user: User,
     ):
 
-        refill = self.refill_repository.get_by_id(
+        refill = self.refill_repository.get_by_id_and_facility(
             db,
             refill_id,
+            current_user.facility_id,
         )
 
         if not refill:
@@ -218,9 +211,10 @@ class RefillService:
         current_user: User,
     ):
 
-        refill = self.refill_repository.get_by_id(
+        refill = self.refill_repository.get_by_id_and_facility(
             db,
             refill_id,
+            current_user.facility_id,
         )
 
         if not refill:
@@ -317,11 +311,13 @@ class RefillService:
         self,
         db: Session,
         refill_id: int,
+        current_user: User,
     ):
 
-        refill = self.refill_repository.get_by_id(
+        refill = self.refill_repository.get_by_id_and_facility(
             db,
             refill_id,
+            current_user.facility_id,
         )
 
         if not refill:
@@ -368,3 +364,4 @@ class RefillService:
             )
             .all()
         )
+

@@ -36,6 +36,7 @@ def create_schedule(
     return service.create_schedule(
         db,
         schedule,
+        current_user,
     )
 
 
@@ -48,7 +49,7 @@ def get_all_schedules(
     current_user: User = Depends(require_nakes),
 ):
 
-    return service.get_all(db)
+    return service.get_all(db, current_user)
 
 
 @router.get(
@@ -78,6 +79,7 @@ def get_schedule(
     return service.get_by_id(
         db,
         schedule_id,
+        current_user,
     )
 
 
@@ -96,6 +98,7 @@ def update_schedule(
         db,
         schedule_id,
         schedule_data,
+        current_user,
     )
 
 
@@ -112,6 +115,7 @@ def delete_schedule(
     return service.delete_schedule(
         db,
         schedule_id,
+        current_user,
     )
 
 

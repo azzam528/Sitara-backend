@@ -25,4 +25,4 @@ def get_dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_dashboard(db)
+    return service.get_dashboard(db, current_user)

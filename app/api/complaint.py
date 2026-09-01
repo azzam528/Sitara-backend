@@ -56,7 +56,7 @@ def get_all_complaints(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_all(db)
+    return service.get_all(db, current_user)
 
 
 # =========================================================
@@ -87,10 +87,10 @@ def create_my_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_patient),
 ):
-    return service.create_my_complaint(
+    return service.create_complaint(
         db,
         complaint,
-        current_user.id,
+        current_user,
     )
 
 
@@ -111,6 +111,7 @@ def get_complaint(
     return service.get_by_id(
         db,
         complaint_id,
+        current_user,
     )
 
 
@@ -128,6 +129,7 @@ def update_complaint(
         db,
         complaint_id,
         complaint_data,
+        current_user,
     )
 
 
@@ -143,4 +145,5 @@ def delete_complaint(
     return service.delete_complaint(
         db,
         complaint_id,
+        current_user,
     )

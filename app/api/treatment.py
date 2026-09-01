@@ -35,6 +35,7 @@ def create_treatment(
     return service.create(
         db,
         treatment,
+        current_user,
     )
 
 
@@ -46,7 +47,10 @@ def get_all_treatments(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_nakes),
 ):
-    return service.get_all(db)
+    return service.get_all(
+        db,
+        current_user,
+    )
 
 
 @router.get(
@@ -75,6 +79,7 @@ def get_treatment_by_id(
     return service.get_by_id(
         db,
         treatment_id,
+        current_user,
     )
 
 
@@ -92,6 +97,7 @@ def update_treatment(
         db,
         treatment_id,
         treatment_data,
+        current_user,
     )
 
 
@@ -107,4 +113,5 @@ def delete_treatment(
     return service.delete(
         db,
         treatment_id,
+        current_user,
     )
