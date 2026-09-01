@@ -269,18 +269,6 @@ class PatientService:
 
             activation_url = self._build_activation_url(raw_token)
 
-<<<<<<< HEAD
-        whatsapp_url = self._build_activation_whatsapp_url(
-            patient.full_name,
-            username,
-            phone,
-            activation_url,
-        )
-
-        # -------------------------------------------------
-        # Return
-        # -------------------------------------------------
-=======
             # -------------------------------------------------
             # 5. WhatsApp Message
             # -------------------------------------------------
@@ -301,7 +289,6 @@ class PatientService:
             # -------------------------------------------------
             # 6. Single Commit for the Entire Transaction
             # -------------------------------------------------
->>>>>>> origin/haikal
 
             db.commit()
             db.refresh(patient)
