@@ -269,25 +269,15 @@ class PatientService:
 
             activation_url = self._build_activation_url(raw_token)
 
-            # -------------------------------------------------
-            # 5. WhatsApp Message
-            # -------------------------------------------------
-
-            message = (
-                f"Halo {patient.full_name},\n\n"
-                f"Akun SITARA Anda telah dibuat.\n\n"
-                f"Username: {username}\n\n"
-                f"Silakan aktivasi akun dan buat password "
-                f"Anda melalui link berikut:\n\n"
-                f"{activation_url}\n\n"
-                f"Link aktivasi berlaku selama 24 jam.\n\n"
-                f"Terima kasih."
+            whatsapp_url = self._build_activation_whatsapp_url(
+                patient.full_name,
+                username,
+                phone,
+                activation_url,
             )
 
-            whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
-
             # -------------------------------------------------
-            # 6. Single Commit for the Entire Transaction
+            # Return
             # -------------------------------------------------
 
             db.commit()
