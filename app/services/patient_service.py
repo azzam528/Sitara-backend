@@ -122,10 +122,15 @@ class PatientService:
     ):
 
         # -------------------------------------------------
-        # Normalize WhatsApp
+        # Normalize WhatsApp & PMO Phone
         # -------------------------------------------------
 
         phone = self._normalize_phone(patient_data.phone)
+        pmo_phone = (
+            self._normalize_phone(patient_data.pmo_phone)
+            if patient_data.pmo_phone
+            else patient_data.pmo_phone
+        )
         username = phone
 
         # -------------------------------------------------
@@ -192,91 +197,119 @@ class PatientService:
 
         temporary_password = self._generate_password()
 
-        # -------------------------------------------------
-        # Create User
-        # -------------------------------------------------
+        try:
+            # -------------------------------------------------
+            # 1. Create User (Atomic - flush only)
+            # -------------------------------------------------
 
-        user = User(
-            username=username,
-            email=None,
-            password_hash=hash_password(temporary_password),
-            role="patient",
-            facility_id=current_user.facility_id,
-            must_change_password=True,
-            is_active=True,
-        )
+            user = User(
+                username=username,
+                email=None,
+                password_hash=hash_password(temporary_password),
+                role="patient",
+                facility_id=current_user.facility_id,
+                must_change_password=True,
+                is_active=True,
+            )
 
-        user = self.user_repository.create(
-            db,
-            user,
-        )
+            user = self.user_repository.create(
+                db,
+                user,
+                commit=False,
+            )
 
-        # -------------------------------------------------
-        # Create Patient
-        # -------------------------------------------------
+            # -------------------------------------------------
+            # 2. Create Patient (Atomic - flush only)
+            # -------------------------------------------------
 
-        patient = Patient(
-            user_id=user.id,
-            medical_record_number=(patient_data.medical_record_number),
-            full_name=patient_data.full_name,
-            nik=patient_data.nik,
-            birth_date=patient_data.birth_date,
-            gender=patient_data.gender,
-            phone=phone,
-            address=patient_data.address,
-            occupation=patient_data.occupation,
-            pmo_name=patient_data.pmo_name,
-            pmo_phone=patient_data.pmo_phone,
-            clinical_note=patient_data.clinical_note,
-        )
+            patient = Patient(
+                user_id=user.id,
+                medical_record_number=patient_data.medical_record_number,
+                full_name=patient_data.full_name,
+                nik=patient_data.nik,
+                birth_date=patient_data.birth_date,
+                gender=patient_data.gender,
+                phone=phone,
+                address=patient_data.address,
+                occupation=patient_data.occupation,
+                pmo_name=patient_data.pmo_name,
+                pmo_phone=pmo_phone,
+                clinical_note=patient_data.clinical_note,
+            )
 
-        patient = self.patient_repository.create(
-            db,
-            patient,
-        )
+            patient = self.patient_repository.create(
+                db,
+                patient,
+                commit=False,
+            )
 
-        # -------------------------------------------------
-        # Generate Activation Token
-        # -------------------------------------------------
+            # -------------------------------------------------
+            # 3. Generate Activation Token (Atomic - flush only)
+            # -------------------------------------------------
 
-        raw_token = generate_activation_token()
+            raw_token = generate_activation_token()
 
-        token_hash = hash_activation_token(raw_token)
+            token_hash = hash_activation_token(raw_token)
 
-        activation_token = ActivationToken(
-            user_id=user.id,
-            token_hash=token_hash,
-            expires_at=(datetime.utcnow() + timedelta(hours=24)),
-        )
+            activation_token = ActivationToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=(datetime.utcnow() + timedelta(hours=24)),
+            )
 
-        self.activation_token_repository.create(
-            db,
-            activation_token,
-        )
+            self.activation_token_repository.create(
+                db,
+                activation_token,
+                commit=False,
+            )
 
-        # -------------------------------------------------
-        # Generate Activation URL
-        # -------------------------------------------------
+            # -------------------------------------------------
+            # 4. Generate Activation URL
+            # -------------------------------------------------
 
-        activation_url = self._build_activation_url(raw_token)
+            activation_url = self._build_activation_url(raw_token)
 
-        whatsapp_url = self._build_activation_whatsapp_url(
-            patient.full_name,
-            username,
-            phone,
-            activation_url,
-        )
+         whatsapp_url = self._build_activation_whatsapp_url(
+                patient.full_name,
+                username,
+                phone,
+                activation_url,
+            )
 
-        # -------------------------------------------------
-        # Return
-        # -------------------------------------------------
+            # -------------------------------------------------
+            # Single Commit for the Entire Transaction
+            # -------------------------------------------------
 
-        return {
-            "patient": patient,
-            "username": username,
-            "activation_url": activation_url,
-            "whatsapp_url": whatsapp_url,
-        }
+            db.commit()
+            db.refresh(patient)
+
+            # -------------------------------------------------
+            # Return
+            # -------------------------------------------------
+
+            return {
+                "patient": patient,
+                "username": username,
+                "activation_url": activation_url,
+                "whatsapp_url": whatsapp_url,
+            }
+
+            db.commit()
+            db.refresh(patient)
+
+            # -------------------------------------------------
+            # Return
+            # -------------------------------------------------
+
+            return {
+                "patient": patient,
+                "username": username,
+                "activation_url": activation_url,
+                "whatsapp_url": whatsapp_url,
+            }
+        except Exception:
+            db.rollback()
+            raise
 
     # =====================================================
     # GET BY ID

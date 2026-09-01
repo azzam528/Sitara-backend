@@ -192,7 +192,12 @@ class FaceService:
         current_embedding_vector = self.recognition_service.extract_embedding(img, face)
 
         # 9. Parse registered embedding vector and compute Cosine Similarity
-        registered_vector = json.loads(active_embedding.embedding)
+        raw_embedding = active_embedding.embedding
+        if isinstance(raw_embedding, (str, bytes, bytearray)):
+            registered_vector = json.loads(raw_embedding)
+        else:
+            registered_vector = raw_embedding
+
         similarity_score = self.recognition_service.calculate_similarity(
             registered_vector,
             current_embedding_vector,

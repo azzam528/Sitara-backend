@@ -6,11 +6,14 @@ from app.models.user import User
 
 class PatientRepository:
 
-    def create(self, db: Session, patient: Patient) -> Patient:
-
+    def create(self, db: Session, patient: Patient, commit: bool = True) -> Patient:
         db.add(patient)
-        db.commit()
-        db.refresh(patient)
+
+        if commit:
+            db.commit()
+            db.refresh(patient)
+        else:
+            db.flush()
 
         return patient
 
