@@ -85,6 +85,8 @@ def complete_vot(
         current_user=current_user,
         daily_medication_id=payload.daily_medication_id,
         drinking_verified=payload.drinking_verified,
+        max_drinking_stage=payload.max_drinking_stage,
+        failure_reason=payload.failure_reason,
     )
 
 

@@ -37,6 +37,10 @@ class VotSessionResponse(BaseModel):
     quantity_remaining: int
     status: DailyMedicationStatus
     vot_step: VotStep
+    attempt_count: int = 0
+    can_retry: bool = True
+    failure_reason: str | None = None
+    max_drinking_stage: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,6 +52,7 @@ class VotStartResponse(BaseModel):
     vot_step: VotStep
     scheduled_date: date
     scheduled_time: time
+    attempt_count: int = 0
 
 
 class VotFaceVerifyResponse(BaseModel):
@@ -60,6 +65,9 @@ class VotFaceVerifyResponse(BaseModel):
     status: str
     vot_step: VotStep
     message: str
+    attempt_count: int = 0
+    can_retry: bool = True
+    failure_reason: str | None = None
 
 
 class VotMedicineDetectResponse(BaseModel):
@@ -73,16 +81,32 @@ class VotMedicineDetectResponse(BaseModel):
     status: DailyMedicationStatus
     vot_step: VotStep
     message: str
+    attempt_count: int = 0
+    can_retry: bool = True
+    failure_reason: str | None = None
 
 
 class VotCompleteRequest(BaseModel):
     daily_medication_id: int
-    drinking_verified: bool
+    drinking_verified: bool = True
+    max_drinking_stage: str | None = None
+    failure_reason: str | None = None
 
 
 class VotCompleteResponse(BaseModel):
     daily_medication_id: int
     status: DailyMedicationStatus
     vot_step: VotStep
-    completed_at: datetime | None
+    completed_at: datetime | None = None
     message: str
+    attempt_count: int = 0
+    can_retry: bool = False
+    failure_reason: str | None = None
+    max_drinking_stage: str | None = None
+
+
+class VotEscalateRequest(BaseModel):
+    daily_medication_id: int
+    failure_reason: str
+    max_drinking_stage: str | None = None
+    note: str | None = None

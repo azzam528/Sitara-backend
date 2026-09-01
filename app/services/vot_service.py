@@ -1,10 +1,12 @@
+from datetime import datetime
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
-from datetime import datetime
-from app.models.daily_medication import DailyMedicationStatus, VotStep
+
+from app.models.daily_medication import DailyMedication, DailyMedicationStatus, VotStep
 from app.models.medicine_schedule import MedicineSchedule
-from app.models.notification import NotificationType
+from app.models.notification import NotificationType, NotificationReferenceType
 from app.models.user import User
+from app.models.video_verification import VideoVerification, VerificationStatus
 from app.repositories.daily_medication_repository import (
     DailyMedicationRepository,
 )
@@ -38,6 +40,66 @@ class VOTService:
         self.face_service = FaceService()
         self.medicine_detection_service = medicine_detection_service
         self.notification_service = NotificationService()
+
+    def _handle_escalation(
+        self,
+        db: Session,
+        current_user: User,
+        occurrence: DailyMedication,
+        reason: str,
+        max_stage: str | None = None,
+    ) -> DailyMedication:
+        occurrence.status = DailyMedicationStatus.NEEDS_REVIEW
+        occurrence.failure_reason = reason
+        if max_stage:
+            occurrence.max_drinking_stage = max_stage
+
+        # Create or link VideoVerification record idempotently
+        if not occurrence.video_verification_id:
+            video = VideoVerification(
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                face_verification_id=occurrence.face_verification_id,
+                verification_date=occurrence.scheduled_date,
+                video_path="vot_escalation/pending",
+                file_name="vot_escalation.mp4",
+                mime_type="video/mp4",
+                file_size=0,
+                status=VerificationStatus.PENDING,
+                review_note=f"Eskalasi AI VOT: {reason}",
+            )
+            db.add(video)
+            db.flush()
+            occurrence.video_verification_id = video.id
+
+        occurrence = self.repository.update(db, occurrence)
+
+        # Notify Nakes in the patient's facility
+        patient_name = "Pasien"
+        if hasattr(current_user, "patient") and current_user.patient and current_user.patient.full_name:
+            patient_name = current_user.patient.full_name
+
+        nakes_list = (
+            db.query(User)
+            .filter(
+                User.role == "nakes",
+                User.facility_id == current_user.facility_id,
+                User.is_active.is_(True),
+            )
+            .all()
+        )
+
+        for nakes in nakes_list:
+            self.notification_service.create(
+                db=db,
+                user_id=nakes.id,
+                title="Eskalasi Verifikasi Obat",
+                message=f"{patient_name} memerlukan peninjauan verifikasi minum obat ({reason}).",
+                notification_type=NotificationType.VIDEO,
+                reference_type=NotificationReferenceType.VIDEO_VERIFICATION,
+                reference_id=occurrence.video_verification_id or occurrence.id,
+            )
+
+        return occurrence
 
     def start(
         self,
@@ -88,6 +150,17 @@ class VOTService:
                 detail="VOT untuk jadwal obat ini hari ini sudah selesai.",
             )
 
+        if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            return VotStartResponse(
+                daily_medication_id=occurrence.id,
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                scheduled_date=occurrence.scheduled_date,
+                scheduled_time=occurrence.scheduled_time,
+                attempt_count=occurrence.attempt_count,
+            )
+
         if occurrence.status in (
             DailyMedicationStatus.MISSED,
             DailyMedicationStatus.REJECTED,
@@ -108,6 +181,7 @@ class VOTService:
             vot_step=occurrence.vot_step,
             scheduled_date=occurrence.scheduled_date,
             scheduled_time=occurrence.scheduled_time,
+            attempt_count=occurrence.attempt_count,
         )
 
     def get_session(
@@ -124,6 +198,11 @@ class VOTService:
         schedule: MedicineSchedule = occurrence.medicine_schedule
         medicine_name = schedule.medicine.name if schedule.medicine else ""
 
+        can_retry = (
+            occurrence.status == DailyMedicationStatus.IN_PROGRESS
+            and occurrence.attempt_count < 3
+        )
+
         return VotSessionResponse(
             daily_medication_id=occurrence.id,
             medicine_schedule_id=occurrence.medicine_schedule_id,
@@ -135,6 +214,10 @@ class VOTService:
             quantity_remaining=schedule.quantity_remaining,
             status=occurrence.status,
             vot_step=occurrence.vot_step,
+            attempt_count=occurrence.attempt_count,
+            can_retry=can_retry,
+            failure_reason=occurrence.failure_reason,
+            max_drinking_stage=occurrence.max_drinking_stage,
         )
 
     def verify_face(
@@ -160,6 +243,12 @@ class VOTService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="VOT sudah selesai.",
+            )
+
+        if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="VOT sedang dalam peninjauan Nakes.",
             )
 
         if occurrence.status in (
@@ -212,17 +301,59 @@ class VOTService:
             occurrence.face_verification_id = face_result.face_verification_id
             occurrence.vot_step = VotStep.FACE_VERIFIED
             occurrence = self.repository.update(db, occurrence)
+            return VotFaceVerifyResponse(
+                daily_medication_id=occurrence.id,
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                face_verification_id=face_result.face_verification_id,
+                verified=True,
+                similarity_score=face_result.similarity_score,
+                threshold=face_result.threshold,
+                status=face_result.status,
+                vot_step=occurrence.vot_step,
+                message=face_result.message,
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=None,
+            )
 
+        # Failure handling: increment attempt_count
+        occurrence.attempt_count += 1
+        occurrence.failure_reason = "FACE_VERIFICATION_FAILED"
+
+        if occurrence.attempt_count >= 3:
+            occurrence = self._handle_escalation(
+                db, current_user, occurrence, reason="FACE_VERIFICATION_FAILED"
+            )
+            msg = face_result.message or "Wajah tidak cocok."
+            return VotFaceVerifyResponse(
+                daily_medication_id=occurrence.id,
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                face_verification_id=face_result.face_verification_id,
+                verified=False,
+                similarity_score=face_result.similarity_score,
+                threshold=face_result.threshold,
+                status=face_result.status,
+                vot_step=occurrence.vot_step,
+                message=f"{msg} Batas maksimal 3 percobaan tercapai, dialihkan ke Nakes.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason="FACE_VERIFICATION_FAILED",
+            )
+
+        occurrence = self.repository.update(db, occurrence)
         return VotFaceVerifyResponse(
             daily_medication_id=occurrence.id,
             medicine_schedule_id=occurrence.medicine_schedule_id,
             face_verification_id=face_result.face_verification_id,
-            verified=face_result.verified,
+            verified=False,
             similarity_score=face_result.similarity_score,
             threshold=face_result.threshold,
             status=face_result.status,
             vot_step=occurrence.vot_step,
             message=face_result.message,
+            attempt_count=occurrence.attempt_count,
+            can_retry=True,
+            failure_reason="FACE_VERIFICATION_FAILED",
         )
 
     def detect_medicine(
@@ -248,6 +379,12 @@ class VOTService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="VOT sudah selesai.",
+            )
+
+        if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="VOT sedang dalam peninjauan Nakes.",
             )
 
         if occurrence.status in (
@@ -303,11 +440,53 @@ class VOTService:
             expected_medicine=expected_medicine,
         )
 
+        bounding_box = detection.get("bounding_box")
+
         if detection["medicine_match"]:
             occurrence.vot_step = VotStep.MEDICINE_MATCHED
             occurrence = self.repository.update(db, occurrence)
+            return VotMedicineDetectResponse(
+                daily_medication_id=occurrence.id,
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                expected_medicine=expected_medicine,
+                detected_medicine=detection.get("detected_medicine"),
+                confidence=detection.get("confidence") or 0.0,
+                bounding_box=bounding_box,
+                medicine_match=True,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                message=detection.get("message") or "",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=None,
+            )
 
-        bounding_box = detection.get("bounding_box")
+        # Failure handling: increment attempt_count
+        occurrence.attempt_count += 1
+        occurrence.failure_reason = "MEDICINE_DETECTION_FAILED"
+
+        if occurrence.attempt_count >= 3:
+            occurrence = self._handle_escalation(
+                db, current_user, occurrence, reason="MEDICINE_DETECTION_FAILED"
+            )
+            msg = detection.get("message") or "Obat tidak sesuai."
+            return VotMedicineDetectResponse(
+                daily_medication_id=occurrence.id,
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                expected_medicine=expected_medicine,
+                detected_medicine=detection.get("detected_medicine"),
+                confidence=detection.get("confidence") or 0.0,
+                bounding_box=bounding_box,
+                medicine_match=False,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                message=f"{msg} Batas maksimal 3 percobaan tercapai, dialihkan ke Nakes.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason="MEDICINE_DETECTION_FAILED",
+            )
+
+        occurrence = self.repository.update(db, occurrence)
         return VotMedicineDetectResponse(
             daily_medication_id=occurrence.id,
             medicine_schedule_id=occurrence.medicine_schedule_id,
@@ -315,10 +494,13 @@ class VOTService:
             detected_medicine=detection.get("detected_medicine"),
             confidence=detection.get("confidence") or 0.0,
             bounding_box=bounding_box,
-            medicine_match=bool(detection.get("medicine_match")),
+            medicine_match=False,
             status=occurrence.status,
             vot_step=occurrence.vot_step,
             message=detection.get("message") or "",
+            attempt_count=occurrence.attempt_count,
+            can_retry=True,
+            failure_reason="MEDICINE_DETECTION_FAILED",
         )
 
     def complete(
@@ -326,7 +508,9 @@ class VOTService:
         db: Session,
         current_user: User,
         daily_medication_id: int,
-        drinking_verified: bool,
+        drinking_verified: bool = True,
+        max_drinking_stage: str | None = None,
+        failure_reason: str | None = None,
     ) -> VotCompleteResponse:
         occurrence = self.daily_medication_service.get_owned(
             db,
@@ -341,6 +525,23 @@ class VOTService:
                 vot_step=occurrence.vot_step,
                 completed_at=occurrence.completed_at,
                 message="VOT sudah selesai.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=occurrence.failure_reason,
+                max_drinking_stage=occurrence.max_drinking_stage,
+            )
+
+        if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            return VotCompleteResponse(
+                daily_medication_id=occurrence.id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                completed_at=occurrence.completed_at,
+                message="VOT sedang dalam peninjauan Nakes.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=occurrence.failure_reason,
+                max_drinking_stage=occurrence.max_drinking_stage,
             )
 
         if occurrence.status != DailyMedicationStatus.IN_PROGRESS:
@@ -355,34 +556,111 @@ class VOTService:
                 detail="Verifikasi wajah dan obat belum selesai.",
             )
 
-        if not drinking_verified:
+        # CASE E: DRINKING SUCCESS
+        if drinking_verified or max_drinking_stage == "completed":
+            occurrence.vot_step = VotStep.VERIFIED
+            occurrence.status = DailyMedicationStatus.VERIFIED
+            occurrence.completed_at = datetime.utcnow()
+            occurrence.max_drinking_stage = "completed"
+            occurrence = self.repository.update(db, occurrence)
+
+            self.notification_service.create(
+                db=db,
+                user_id=current_user.id,
+                title="Verifikasi Minum Obat",
+                message="Verifikasi minum obat berhasil.",
+                notification_type=NotificationType.VIDEO,
+                reference_id=occurrence.id,
+            )
+
+            return VotCompleteResponse(
+                daily_medication_id=occurrence.id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                completed_at=occurrence.completed_at,
+                message="Verifikasi minum obat berhasil.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=None,
+                max_drinking_stage="completed",
+            )
+
+        # CASE D: DRINKING AMBIGUOUS (nearMouth / withdrawing reached, potential ingestion)
+        # NO RETRY, DO NOT INCREMENT ATTEMPT COUNT (PATIENT MUST NOT RE-DRINK)
+        if max_drinking_stage in ["nearMouth", "withdrawing"]:
+            occurrence = self._handle_escalation(
+                db,
+                current_user,
+                occurrence,
+                reason="DRINKING_AMBIGUOUS",
+                max_stage=max_drinking_stage,
+            )
+            return VotCompleteResponse(
+                daily_medication_id=occurrence.id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                completed_at=None,
+                message="Proses minum terdeteksi sebagian dan dialihkan ke Nakes untuk ditinjau.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason="DRINKING_AMBIGUOUS",
+                max_drinking_stage=max_drinking_stage,
+            )
+
+        # If drinking_verified is False and no max_drinking_stage is specified, preserve HTTP 400 contract for backwards compatibility
+        if not drinking_verified and not max_drinking_stage:
+            occurrence.attempt_count += 1
+            reason = failure_reason or "DRINKING_TIMEOUT"
+            occurrence.failure_reason = reason
+            if occurrence.attempt_count >= 3:
+                self._handle_escalation(
+                    db,
+                    current_user,
+                    occurrence,
+                    reason=reason,
+                )
+            else:
+                self.repository.update(db, occurrence)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Proses minum belum terverifikasi.",
             )
 
-        occurrence.vot_step = VotStep.VERIFIED
-        occurrence.status = DailyMedicationStatus.VERIFIED
-        occurrence.completed_at = datetime.utcnow()
+        # CASE C: DRINKING TIMEOUT (waiting / handWithMedicine / approachingMouth)
+        occurrence.attempt_count += 1
+        reason = failure_reason or "DRINKING_TIMEOUT"
+        occurrence.failure_reason = reason
+        occurrence.max_drinking_stage = max_drinking_stage
 
-        occurrence = self.repository.update(
-            db,
-            occurrence,
-        )
+        if occurrence.attempt_count >= 3:
+            occurrence = self._handle_escalation(
+                db,
+                current_user,
+                occurrence,
+                reason=reason,
+                max_stage=max_drinking_stage,
+            )
+            return VotCompleteResponse(
+                daily_medication_id=occurrence.id,
+                status=occurrence.status,
+                vot_step=occurrence.vot_step,
+                completed_at=None,
+                message="Batas maksimal 3 percobaan tercapai. Verifikasi diteruskan ke Nakes.",
+                attempt_count=occurrence.attempt_count,
+                can_retry=False,
+                failure_reason=reason,
+                max_drinking_stage=max_drinking_stage,
+            )
 
-        self.notification_service.create(
-            db=db,
-            user_id=current_user.id,
-            title="Verifikasi Minum Obat",
-            message="Verifikasi minum obat berhasil.",
-            notification_type=NotificationType.VIDEO,
-            reference_id=occurrence.id,
-        )
-
+        occurrence = self.repository.update(db, occurrence)
         return VotCompleteResponse(
             daily_medication_id=occurrence.id,
             status=occurrence.status,
             vot_step=occurrence.vot_step,
-            completed_at=occurrence.completed_at,
-            message="Verifikasi minum obat berhasil.",
+            completed_at=None,
+            message="Proses minum belum terverifikasi. Silakan coba lagi.",
+            attempt_count=occurrence.attempt_count,
+            can_retry=True,
+            failure_reason=reason,
+            max_drinking_stage=max_drinking_stage,
         )

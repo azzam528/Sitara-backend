@@ -5,6 +5,12 @@ from app.models.video_verification import (
     VideoVerification,
     VerificationStatus,
 )
+from app.models.daily_medication import (
+    DailyMedication,
+    DailyMedicationStatus,
+    VotStep,
+)
+from datetime import datetime
 
 from app.models.medicine_schedule import (
     MedicineSchedule,
@@ -347,6 +353,40 @@ class VideoVerificationService:
             db,
             video,
         )
+
+        # -------------------------------------------------
+        # SYNC TO DAILY MEDICATION
+        # -------------------------------------------------
+        if data.status in [
+            VerificationStatus.VERIFIED,
+            VerificationStatus.REJECTED,
+        ]:
+            daily_med = (
+                db.query(DailyMedication)
+                .filter(
+                    DailyMedication.video_verification_id == video.id,
+                    DailyMedication.is_active.is_(True),
+                )
+                .first()
+            )
+            if not daily_med:
+                daily_med = (
+                    db.query(DailyMedication)
+                    .filter(
+                        DailyMedication.medicine_schedule_id == video.medicine_schedule_id,
+                        DailyMedication.scheduled_date == video.verification_date,
+                        DailyMedication.is_active.is_(True),
+                    )
+                    .first()
+                )
+            if daily_med:
+                if data.status == VerificationStatus.VERIFIED:
+                    daily_med.status = DailyMedicationStatus.VERIFIED
+                    daily_med.vot_step = VotStep.VERIFIED
+                    daily_med.completed_at = datetime.utcnow()
+                elif data.status == VerificationStatus.REJECTED:
+                    daily_med.status = DailyMedicationStatus.REJECTED
+                db.flush()
 
         # -------------------------------------------------
         # SEND NOTIFICATION IF FINAL STATUS

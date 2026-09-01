@@ -23,6 +23,7 @@ class DailyMedicationStatus(str, Enum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     VERIFIED = "verified"
+    NEEDS_REVIEW = "needs_review"
     MISSED = "missed"
     REJECTED = "rejected"
 
@@ -86,6 +87,19 @@ class DailyMedication(Base):
         ForeignKey("video_verifications.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+
+    attempt_count: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    failure_reason: Mapped[str | None] = mapped_column(
+        nullable=True,
+    )
+
+    max_drinking_stage: Mapped[str | None] = mapped_column(
+        nullable=True,
     )
 
     completed_at: Mapped[datetime | None] = mapped_column(
