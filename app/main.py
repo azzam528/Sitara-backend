@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import asyncio
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,6 +9,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError, DBAPIError
 
 from app.core.database import get_db
+from app.core.medicine_reminder_loop import (
+    medicine_reminder_loop,
+    reminder_loop_enabled,
+)
 
 from app.api.activation import router as activation_router
 from app.api.auth import router as auth_router
@@ -39,7 +46,22 @@ from app.api.medicine_detection import (
 from app.api.medication import router as medication_router
 from app.api.vot import router as vot_router
 
-app = FastAPI(title="SITARA API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = None
+    if reminder_loop_enabled():
+        task = asyncio.create_task(medicine_reminder_loop())
+    yield
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="SITARA API", lifespan=lifespan)
 
 
 # =========================

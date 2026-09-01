@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models.daily_medication import DailyMedicationStatus, VotStep
 from app.models.medicine_schedule import MedicineSchedule
+from app.models.notification import NotificationType
 from app.models.user import User
 from app.repositories.daily_medication_repository import (
     DailyMedicationRepository,
@@ -25,6 +26,7 @@ from app.services.face_service import FaceService
 from app.services.medicine_detection_service import (
     medicine_detection_service,
 )
+from app.services.notification_service import NotificationService
 
 
 class VOTService:
@@ -35,6 +37,7 @@ class VOTService:
         self.schedule_repository = MedicineScheduleRepository()
         self.face_service = FaceService()
         self.medicine_detection_service = medicine_detection_service
+        self.notification_service = NotificationService()
 
     def start(
         self,
@@ -76,7 +79,10 @@ class VOTService:
             today,
         )
 
-        if occurrence.status == DailyMedicationStatus.VERIFIED:
+        if (
+            occurrence.status == DailyMedicationStatus.VERIFIED
+            or occurrence.vot_step == VotStep.VERIFIED
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="VOT untuk jadwal obat ini hari ini sudah selesai.",
@@ -362,6 +368,15 @@ class VOTService:
         occurrence = self.repository.update(
             db,
             occurrence,
+        )
+
+        self.notification_service.create(
+            db=db,
+            user_id=current_user.id,
+            title="Verifikasi Minum Obat",
+            message="Verifikasi minum obat berhasil.",
+            notification_type=NotificationType.VIDEO,
+            reference_id=occurrence.id,
         )
 
         return VotCompleteResponse(

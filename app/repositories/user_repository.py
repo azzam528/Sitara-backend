@@ -42,12 +42,15 @@ class UserRepository:
         self,
         db: Session,
         user: User,
+        commit: bool = True,
     ):
         db.add(user)
 
-        db.commit()
-
-        db.refresh(user)
+        if commit:
+            db.commit()
+            db.refresh(user)
+        else:
+            db.flush()
 
         return user
 

@@ -17,6 +17,7 @@ class TodayMedicationResponse(BaseModel):
     quantity_remaining: int
     status: DailyMedicationStatus
     vot_step: VotStep
+    eligible: bool
 
     model_config = ConfigDict(from_attributes=True)
 

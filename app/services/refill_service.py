@@ -144,6 +144,11 @@ class RefillService:
         # -------------------------------------------------
 
         if current_user.role == "patient":
+            patient_name = "Pasien"
+            if hasattr(current_user, "patient") and current_user.patient and current_user.patient.full_name:
+                patient_name = current_user.patient.full_name
+            elif refill.treatment and refill.treatment.patient and refill.treatment.patient.full_name:
+                patient_name = refill.treatment.patient.full_name
 
             nakes_list = self.user_repository.get_all_nakes(
                 db,
@@ -155,9 +160,9 @@ class RefillService:
                     db=db,
                     user_id=nakes.id,
                     title="Permintaan Refill Baru",
-                    message=("Pasien mengajukan permintaan refill obat."),
-                    notification_type=(NotificationType.REFILL),
-                    reference_type=(NotificationReferenceType.REFILL),
+                    message=f"{patient_name} mengajukan permintaan refill obat.",
+                    notification_type=NotificationType.REFILL,
+                    reference_type=NotificationReferenceType.REFILL,
                     reference_id=refill.id,
                 )
 

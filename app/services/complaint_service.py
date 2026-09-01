@@ -121,6 +121,11 @@ class ComplaintService:
         # -------------------------------------------------
 
         if current_user.role == "patient":
+            patient_name = "Pasien"
+            if hasattr(current_user, "patient") and current_user.patient and current_user.patient.full_name:
+                patient_name = current_user.patient.full_name
+            elif complaint.treatment and complaint.treatment.patient and complaint.treatment.patient.full_name:
+                patient_name = complaint.treatment.patient.full_name
 
             nakes_list = self.user_repository.get_all_nakes(
                 db,
@@ -148,7 +153,7 @@ class ComplaintService:
                     db=db,
                     user_id=nakes.id,
                     title="Complaint Baru",
-                    message=message,
+                    message=f"{patient_name} mengirim complaint baru.",
                     notification_type=NotificationType.COMPLAINT,
                     reference_type=NotificationReferenceType.COMPLAINT,
                     reference_id=complaint.id,
@@ -217,6 +222,8 @@ class ComplaintService:
                 detail="Complaint not found",
             )
 
+        previous_response = (complaint.response or "").strip()
+
         update_data = complaint_data.model_dump(
             exclude_unset=True,
         )
@@ -229,10 +236,44 @@ class ComplaintService:
                 value,
             )
 
-        return self.repository.update(
+        complaint = self.repository.update(
             db,
             complaint,
         )
+
+        new_response = (complaint.response or "").strip()
+        response_just_set = (
+            "response" in update_data
+            and not previous_response
+            and bool(new_response)
+        )
+
+        if response_just_set:
+            patient = (
+                db.query(Patient)
+                .join(
+                    Treatment,
+                    Treatment.patient_id == Patient.id,
+                )
+                .filter(
+                    Treatment.id == complaint.treatment_id,
+                    Patient.is_active.is_(True),
+                )
+                .first()
+            )
+
+            if patient:
+                self.notification_service.create(
+                    db=db,
+                    user_id=patient.user_id,
+                    title="Balasan Keluhan",
+                    message="Petugas telah membalas keluhan Anda.",
+                    notification_type=NotificationType.COMPLAINT,
+                    reference_type=NotificationReferenceType.COMPLAINT,
+                    reference_id=complaint.id,
+                )
+
+        return complaint
 
     # =====================================================
     # DELETE

@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """
-    Class untuk menyimpan seluruh konfigurasi aplikasi.
+    Class untuk menyimpan seluruh konfigurasi aplikasi SITARA.
 
     Semua nilai akan diambil dari file .env
     sehingga kita tidak perlu menuliskan password

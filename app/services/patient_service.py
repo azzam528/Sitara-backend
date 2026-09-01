@@ -89,6 +89,27 @@ class PatientService:
 
         return f"{base_url}/activate?token={raw_token}"
 
+    def _build_activation_whatsapp_url(
+        self,
+        full_name: str,
+        username: str,
+        phone: str,
+        activation_url: str,
+    ) -> str:
+
+        message = (
+            f"Halo {full_name},\n\n"
+            f"Akun SITARA Anda telah dibuat.\n\n"
+            f"Username: {username}\n\n"
+            f"Silakan aktivasi akun dan buat password "
+            f"Anda melalui link berikut:\n\n"
+            f"{activation_url}\n\n"
+            f"Link aktivasi berlaku selama 24 jam.\n\n"
+            f"Terima kasih."
+        )
+
+        return f"https://wa.me/{phone}?text={quote(message)}"
+
     # =====================================================
     # CREATE PATIENT
     # =====================================================
@@ -101,20 +122,15 @@ class PatientService:
     ):
 
         # -------------------------------------------------
-        # Validate Birth Date
-        # -------------------------------------------------
-
-        if patient_data.birth_date >= date.today():
-            raise HTTPException(
-                status_code=400,
-                detail="Tanggal lahir tidak boleh di masa depan.",
-            )
-
-        # -------------------------------------------------
-        # Normalize WhatsApp
+        # Normalize WhatsApp & PMO Phone
         # -------------------------------------------------
 
         phone = self._normalize_phone(patient_data.phone)
+        pmo_phone = (
+            self._normalize_phone(patient_data.pmo_phone)
+            if patient_data.pmo_phone
+            else patient_data.pmo_phone
+        )
         username = phone
 
         # -------------------------------------------------
@@ -181,101 +197,128 @@ class PatientService:
 
         temporary_password = self._generate_password()
 
-        # -------------------------------------------------
-        # Create User
-        # -------------------------------------------------
+        try:
+            # -------------------------------------------------
+            # 1. Create User (Atomic - flush only)
+            # -------------------------------------------------
 
-        user = User(
-            username=username,
-            email=None,
-            password_hash=hash_password(temporary_password),
-            role="patient",
-            facility_id=current_user.facility_id,
-            must_change_password=True,
-            is_active=True,
+            user = User(
+                username=username,
+                email=None,
+                password_hash=hash_password(temporary_password),
+                role="patient",
+                facility_id=current_user.facility_id,
+                must_change_password=True,
+                is_active=True,
+            )
+
+            user = self.user_repository.create(
+                db,
+                user,
+                commit=False,
+            )
+
+            # -------------------------------------------------
+            # 2. Create Patient (Atomic - flush only)
+            # -------------------------------------------------
+
+            patient = Patient(
+                user_id=user.id,
+                medical_record_number=patient_data.medical_record_number,
+                full_name=patient_data.full_name,
+                nik=patient_data.nik,
+                birth_date=patient_data.birth_date,
+                gender=patient_data.gender,
+                phone=phone,
+                address=patient_data.address,
+                occupation=patient_data.occupation,
+                pmo_name=patient_data.pmo_name,
+                pmo_phone=pmo_phone,
+                clinical_note=patient_data.clinical_note,
+            )
+
+            patient = self.patient_repository.create(
+                db,
+                patient,
+                commit=False,
+            )
+
+            # -------------------------------------------------
+            # 3. Generate Activation Token (Atomic - flush only)
+            # -------------------------------------------------
+
+            raw_token = generate_activation_token()
+
+            token_hash = hash_activation_token(raw_token)
+
+            activation_token = ActivationToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=(datetime.utcnow() + timedelta(hours=24)),
+            )
+
+            self.activation_token_repository.create(
+                db,
+                activation_token,
+                commit=False,
+            )
+
+            # -------------------------------------------------
+            # 4. Generate Activation URL
+            # -------------------------------------------------
+
+            activation_url = self._build_activation_url(raw_token)
+
+<<<<<<< HEAD
+        whatsapp_url = self._build_activation_whatsapp_url(
+            patient.full_name,
+            username,
+            phone,
+            activation_url,
         )
-
-        user = self.user_repository.create(
-            db,
-            user,
-        )
-
-        # -------------------------------------------------
-        # Create Patient
-        # -------------------------------------------------
-
-        patient = Patient(
-            user_id=user.id,
-            medical_record_number=(patient_data.medical_record_number),
-            full_name=patient_data.full_name,
-            nik=patient_data.nik,
-            birth_date=patient_data.birth_date,
-            gender=patient_data.gender,
-            phone=phone,
-            address=patient_data.address,
-            occupation=patient_data.occupation,
-            pmo_name=patient_data.pmo_name,
-            pmo_phone=patient_data.pmo_phone,
-            clinical_note=patient_data.clinical_note,
-        )
-
-        patient = self.patient_repository.create(
-            db,
-            patient,
-        )
-
-        # -------------------------------------------------
-        # Generate Activation Token
-        # -------------------------------------------------
-
-        raw_token = generate_activation_token()
-
-        token_hash = hash_activation_token(raw_token)
-
-        activation_token = ActivationToken(
-            user_id=user.id,
-            token_hash=token_hash,
-            expires_at=(datetime.utcnow() + timedelta(hours=24)),
-        )
-
-        self.activation_token_repository.create(
-            db,
-            activation_token,
-        )
-
-        # -------------------------------------------------
-        # Generate Activation URL
-        # -------------------------------------------------
-
-        activation_url = self._build_activation_url(raw_token)
-
-        # -------------------------------------------------
-        # WhatsApp Message
-        # -------------------------------------------------
-
-        message = (
-            f"Halo {patient.full_name},\n\n"
-            f"Akun SITARA Anda telah dibuat.\n\n"
-            f"Username: {username}\n\n"
-            f"Silakan aktivasi akun dan buat password "
-            f"Anda melalui link berikut:\n\n"
-            f"{activation_url}\n\n"
-            f"Link aktivasi berlaku selama 24 jam.\n\n"
-            f"Terima kasih."
-        )
-
-        whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
 
         # -------------------------------------------------
         # Return
         # -------------------------------------------------
+=======
+            # -------------------------------------------------
+            # 5. WhatsApp Message
+            # -------------------------------------------------
 
-        return {
-            "patient": patient,
-            "username": username,
-            "activation_url": activation_url,
-            "whatsapp_url": whatsapp_url,
-        }
+            message = (
+                f"Halo {patient.full_name},\n\n"
+                f"Akun SITARA Anda telah dibuat.\n\n"
+                f"Username: {username}\n\n"
+                f"Silakan aktivasi akun dan buat password "
+                f"Anda melalui link berikut:\n\n"
+                f"{activation_url}\n\n"
+                f"Link aktivasi berlaku selama 24 jam.\n\n"
+                f"Terima kasih."
+            )
+
+            whatsapp_url = f"https://wa.me/{phone}" f"?text={quote(message)}"
+
+            # -------------------------------------------------
+            # 6. Single Commit for the Entire Transaction
+            # -------------------------------------------------
+>>>>>>> origin/haikal
+
+            db.commit()
+            db.refresh(patient)
+
+            # -------------------------------------------------
+            # Return
+            # -------------------------------------------------
+
+            return {
+                "patient": patient,
+                "username": username,
+                "activation_url": activation_url,
+                "whatsapp_url": whatsapp_url,
+            }
+        except Exception:
+            db.rollback()
+            raise
 
     # =====================================================
     # GET BY ID
@@ -363,6 +406,78 @@ class PatientService:
             db,
             patient,
         )
+
+    # =====================================================
+    # RESEND ACTIVATION
+    # =====================================================
+
+    def resend_activation(
+        self,
+        db: Session,
+        patient_id: int,
+        current_user: User,
+    ):
+
+        patient = self.patient_repository.get_by_id_and_facility(
+            db,
+            patient_id,
+            current_user.facility_id,
+        )
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found",
+            )
+
+        user = self.user_repository.get_by_id(
+            db,
+            patient.user_id,
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="User tidak ditemukan.",
+            )
+
+        if not user.must_change_password:
+            raise HTTPException(
+                status_code=400,
+                detail="Akun sudah diaktivasi.",
+            )
+
+        self.activation_token_repository.invalidate_user_tokens(
+            db,
+            user.id,
+        )
+
+        raw_token = generate_activation_token()
+        token_hash = hash_activation_token(raw_token)
+
+        activation_token = ActivationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=(datetime.utcnow() + timedelta(hours=24)),
+        )
+
+        self.activation_token_repository.create(
+            db,
+            activation_token,
+        )
+
+        activation_url = self._build_activation_url(raw_token)
+        whatsapp_url = self._build_activation_whatsapp_url(
+            patient.full_name,
+            user.username,
+            patient.phone,
+            activation_url,
+        )
+
+        return {
+            "message": "Link aktivasi baru berhasil dibuat.",
+            "whatsapp_url": whatsapp_url,
+        }
 
     # =====================================================
     # PATIENT PROFILE

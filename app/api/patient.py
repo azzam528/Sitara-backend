@@ -13,6 +13,7 @@ from app.schemas.patient import (
     PatientResponse,
     PatientCreateResponse,
     PatientUpdate,
+    ActivationResendResponse,
 )
 
 from app.services.patient_service import PatientService
@@ -88,6 +89,22 @@ def get_patient_detail(
         db,
         patient_id,
         current_user.facility_id,
+    )
+
+
+@router.post(
+    "/{patient_id}/activation/resend",
+    response_model=ActivationResendResponse,
+)
+def resend_activation(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.resend_activation(
+        db,
+        patient_id,
+        current_user,
     )
 
 
