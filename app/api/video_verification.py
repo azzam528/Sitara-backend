@@ -81,6 +81,21 @@ def get_video_by_id(
     )
 
 
+@router.get(
+    "/{video_id}/stream",
+)
+def stream_video(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_nakes),
+):
+    return service.stream_video(
+        db,
+        video_id,
+        current_user,
+    )
+
+
 @router.put(
     "/{video_id}",
     response_model=VideoVerificationResponse,

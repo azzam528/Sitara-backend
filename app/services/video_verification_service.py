@@ -1,4 +1,6 @@
+import os
 from fastapi import HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.models.video_verification import (
@@ -297,6 +299,64 @@ class VideoVerificationService:
             )
 
         return video
+
+    # =====================================================
+    # STREAM VIDEO EVIDENCE
+    # NAKES
+    # =====================================================
+
+    def stream_video(
+        self,
+        db: Session,
+        video_id: int,
+        current_user: User,
+    ):
+        video = self.repository.get_by_id_and_facility(
+            db,
+            video_id,
+            current_user.facility_id,
+        )
+
+        if not video:
+            raise HTTPException(
+                status_code=404,
+                detail="Video verification not found",
+            )
+
+        if not video.video_path:
+            raise HTTPException(
+                status_code=404,
+                detail="Berkas video tidak ditemukan",
+            )
+
+        # Resolusi berkas aman & pencegahan path traversal
+        normalized_rel = os.path.normpath(video.video_path)
+        if normalized_rel.startswith("..") or os.path.isabs(normalized_rel):
+            raise HTTPException(
+                status_code=404,
+                detail="Berkas video tidak ditemukan",
+            )
+
+        file_path = os.path.abspath(normalized_rel)
+        allowed_base = os.path.abspath("uploads")
+
+        if not file_path.startswith(allowed_base):
+            raise HTTPException(
+                status_code=404,
+                detail="Berkas video tidak ditemukan",
+            )
+
+        if not os.path.isfile(file_path):
+            raise HTTPException(
+                status_code=404,
+                detail="Berkas video tidak ditemukan",
+            )
+
+        return FileResponse(
+            path=file_path,
+            media_type=video.mime_type or "video/mp4",
+            filename=video.file_name or "video_evidence.mp4",
+        )
 
     # =====================================================
     # UPDATE
