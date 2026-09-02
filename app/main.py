@@ -45,6 +45,7 @@ from app.api.medicine_detection import (
 )
 from app.api.medication import router as medication_router
 from app.api.vot import router as vot_router
+from app.api.admin import router as admin_router
 
 
 @asynccontextmanager
@@ -98,6 +99,7 @@ app.include_router(dashboard_router)
 app.include_router(medicine_detection_router)
 app.include_router(medication_router)
 app.include_router(vot_router)
+app.include_router(admin_router)
 
 # =========================
 # Health Check Endpoint
