@@ -12,6 +12,7 @@ from app.schemas.daily_medication import (
     VotStartResponse,
     VotCompleteRequest,
     VotCompleteResponse,
+    VotVideoUploadResponse,
 )
 from app.services.vot_service import VOTService
 
@@ -87,6 +88,24 @@ def complete_vot(
         drinking_verified=payload.drinking_verified,
         max_drinking_stage=payload.max_drinking_stage,
         failure_reason=payload.failure_reason,
+    )
+
+
+@router.post(
+    "/{daily_medication_id}/video",
+    response_model=VotVideoUploadResponse,
+)
+def upload_vot_video(
+    daily_medication_id: int,
+    video: UploadFile = File(..., description="File video evidence proses minum obat (MP4, MOV, WebM, 3GP)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_patient),
+):
+    return service.upload_video(
+        db=db,
+        current_user=current_user,
+        daily_medication_id=daily_medication_id,
+        video=video,
     )
 
 

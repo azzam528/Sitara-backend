@@ -1,7 +1,10 @@
+import os
+import uuid
 from datetime import datetime
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.daily_medication import DailyMedication, DailyMedicationStatus, VotStep
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.notification import NotificationType, NotificationReferenceType
@@ -19,6 +22,7 @@ from app.schemas.daily_medication import (
     VotSessionResponse,
     VotStartResponse,
     VotCompleteResponse,
+    VotVideoUploadResponse,
 )
 from app.services.daily_medication_service import (
     DailyMedicationService,
@@ -663,4 +667,120 @@ class VOTService:
             can_retry=True,
             failure_reason=reason,
             max_drinking_stage=max_drinking_stage,
+        )
+
+    def upload_video(
+        self,
+        db: Session,
+        current_user: User,
+        daily_medication_id: int,
+        video: UploadFile,
+    ) -> VotVideoUploadResponse:
+        # 1. Ownership & active patient validation
+        occurrence = self.daily_medication_service.get_owned(
+            db,
+            current_user,
+            daily_medication_id,
+        )
+
+        # 2. Validate MIME type & file extension
+        allowed_mime_types = {
+            "video/mp4",
+            "video/quicktime",
+            "video/webm",
+            "video/3gpp",
+            "video/x-matroska",
+            "video/avi",
+            "application/octet-stream",
+        }
+        content_type = (video.content_type or "").lower()
+        filename = video.filename or "video.mp4"
+        ext = os.path.splitext(filename)[1].lower()
+        if not ext:
+            ext = ".mp4"
+
+        valid_exts = {".mp4", ".mov", ".webm", ".3gp", ".mkv", ".avi"}
+        if content_type not in allowed_mime_types and ext not in valid_exts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format file video tidak didukung. Format yang didukung: MP4, MOV, WebM, 3GP.",
+            )
+
+        # 3. Read and validate size & empty file
+        max_size_bytes = settings.MAX_VOT_VIDEO_SIZE_MB * 1024 * 1024
+
+        try:
+            content = video.file.read()
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gagal membaca file video.",
+            )
+
+        file_size = len(content)
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File video tidak boleh kosong (0 byte).",
+            )
+
+        if file_size > max_size_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Ukuran file video melebihi batas maksimum ({settings.MAX_VOT_VIDEO_SIZE_MB} MB).",
+            )
+
+        # 4. Save file to disk
+        rel_dir = os.path.join(settings.VOT_VIDEO_UPLOAD_DIR, str(occurrence.id))
+        os.makedirs(rel_dir, exist_ok=True)
+
+        safe_filename = f"{uuid.uuid4().hex}{ext}"
+        full_dest_path = os.path.join(rel_dir, safe_filename)
+        rel_path = full_dest_path.replace("\\", "/")
+
+        with open(full_dest_path, "wb") as f:
+            f.write(content)
+
+        # 5. Metadata & Idempotency
+        video_rec = None
+        if occurrence.video_verification_id:
+            video_rec = (
+                db.query(VideoVerification)
+                .filter(VideoVerification.id == occurrence.video_verification_id)
+                .first()
+            )
+
+        if video_rec is not None:
+            video_rec.video_path = rel_path
+            video_rec.file_name = safe_filename
+            video_rec.mime_type = content_type or "video/mp4"
+            video_rec.file_size = file_size
+            video_rec.updated_at = datetime.utcnow()
+        else:
+            video_rec = VideoVerification(
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                face_verification_id=occurrence.face_verification_id,
+                verification_date=occurrence.scheduled_date,
+                video_path=rel_path,
+                file_name=safe_filename,
+                mime_type=content_type or "video/mp4",
+                file_size=file_size,
+                status=VerificationStatus.PENDING,
+                review_note="AI VOT Automatic Video Evidence",
+            )
+            db.add(video_rec)
+            db.flush()
+            occurrence.video_verification_id = video_rec.id
+
+        db.commit()
+        db.refresh(occurrence)
+        db.refresh(video_rec)
+
+        return VotVideoUploadResponse(
+            message="Video evidence berhasil diunggah.",
+            daily_medication_id=occurrence.id,
+            video_verification_id=video_rec.id,
+            video_path=video_rec.video_path,
+            file_size=video_rec.file_size,
+            status=video_rec.status.value if hasattr(video_rec.status, "value") else str(video_rec.status),
         )

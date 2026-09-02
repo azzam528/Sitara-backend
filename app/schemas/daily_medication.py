@@ -110,3 +110,14 @@ class VotEscalateRequest(BaseModel):
     failure_reason: str
     max_drinking_stage: str | None = None
     note: str | None = None
+
+
+class VotVideoUploadResponse(BaseModel):
+    message: str
+    daily_medication_id: int
+    video_verification_id: int
+    video_path: str
+    file_size: int
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)

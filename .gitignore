@@ -38,3 +38,6 @@ dist/
 *.db
 *.sqlite
 *.sqlite3
+
+# Runtime storage / uploaded files
+uploads/
