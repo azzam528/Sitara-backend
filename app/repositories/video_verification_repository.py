@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.medicine_schedule import MedicineSchedule
 from app.models.patient import Patient
@@ -8,6 +8,8 @@ from app.models.video_verification import (
     VideoVerification,
     VerificationStatus,
 )
+from app.models.medicine_schedule import MedicineSchedule
+from app.models.treatment import Treatment
 
 
 class VideoVerificationRepository:
@@ -17,13 +19,9 @@ class VideoVerificationRepository:
         db: Session,
         video: VideoVerification,
     ):
-
         db.add(video)
-
         db.commit()
-
         db.refresh(video)
-
         return video
 
     def get_by_id(
@@ -31,9 +29,16 @@ class VideoVerificationRepository:
         db: Session,
         video_id: int,
     ):
-
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.treatment)
+                .joinedload(Treatment.patient),
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.medicine),
+                joinedload(VideoVerification.face_verification),
+            )
             .filter(
                 VideoVerification.id == video_id,
                 VideoVerification.is_active == True,
@@ -80,9 +85,16 @@ class VideoVerificationRepository:
         self,
         db: Session,
     ):
-
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.treatment)
+                .joinedload(Treatment.patient),
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.medicine),
+                joinedload(VideoVerification.face_verification),
+            )
             .filter(
                 VideoVerification.is_active == True,
             )
@@ -127,7 +139,6 @@ class VideoVerificationRepository:
         db: Session,
         schedule_id: int,
     ):
-
         return (
             db.query(VideoVerification)
             .filter(
@@ -141,9 +152,16 @@ class VideoVerificationRepository:
         self,
         db: Session,
     ):
-
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.treatment)
+                .joinedload(Treatment.patient),
+                joinedload(VideoVerification.medicine_schedule)
+                .joinedload(MedicineSchedule.medicine),
+                joinedload(VideoVerification.face_verification),
+            )
             .filter(
                 VideoVerification.status == VerificationStatus.PENDING,
                 VideoVerification.is_active == True,
@@ -190,11 +208,8 @@ class VideoVerificationRepository:
         db: Session,
         video: VideoVerification,
     ):
-
         db.commit()
-
         db.refresh(video)
-
         return video
 
     def delete(
@@ -202,11 +217,7 @@ class VideoVerificationRepository:
         db: Session,
         video: VideoVerification,
     ):
-
         video.is_active = False
-
         db.commit()
-
         db.refresh(video)
-
-        return video
+        return video

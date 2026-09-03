@@ -7,6 +7,7 @@ from app.models.treatment import (
     TreatmentStatus,
     RegimenEnum,
 )
+from app.models.patient import GenderEnum
 
 
 class TreatmentCreate(BaseModel):
@@ -41,6 +42,14 @@ class PatientTreatmentResponse(BaseModel):
     full_name: str
     nik: str
     medical_record_number: str
+    birth_date: date | None = None
+    gender: GenderEnum | None = None
+    phone: str | None = None
+    address: str | None = None
+    occupation: str | None = None
+    pmo_name: str | None = None
+    pmo_phone: str | None = None
+    clinical_note: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

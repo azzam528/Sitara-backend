@@ -43,8 +43,6 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-
 # =========================================================
 # FIXTURES
 # =========================================================
@@ -52,10 +50,12 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(scope="function")
 def db_session():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     yield db
     db.close()
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_db, None)
 
 @pytest.fixture(scope="function")
 def client():
@@ -193,6 +193,12 @@ def test_facility_isolation_control_schedule(client: TestClient, setup_data: dic
     res_b = client.get(f"/control-schedules/{setup_data['control_a_id']}", headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"})
     assert res_b.status_code == 404
 
+def test_facility_isolation_video_verification(client: TestClient, setup_data: dict):
+    res_a = client.get(f"/video-verifications/{setup_data['video_a_id']}", headers={"Authorization": f"Bearer {setup_data['nakes_a_token']}"})
+    assert res_a.status_code == 200
+    res_b = client.get(f"/video-verifications/{setup_data['video_a_id']}", headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"})
+    assert res_b.status_code == 404
+
 def test_facility_isolation_dashboard(client: TestClient, setup_data: dict):
     res_a = client.get("/dashboard", headers={"Authorization": f"Bearer {setup_data['nakes_a_token']}"})
     assert res_a.status_code == 200
@@ -274,17 +280,26 @@ def test_facility_isolation_complaint_write(client: TestClient, setup_data: dict
     assert res_del.status_code in [403, 404]
 
 def test_facility_isolation_video_verification_write(client: TestClient, setup_data: dict):
-    # Nakes B cannot PUT Video A.
-    res_put = client.put(
+    # Nakes A CAN PUT Video A (allowed)
+    res_put_a = client.put(
         f"/video-verifications/{setup_data['video_a_id']}",
-        json={"status": "verified"},
+        json={"status": "verified", "review_note": "Disetujui"},
+        headers={"Authorization": f"Bearer {setup_data['nakes_a_token']}"}
+    )
+    assert res_put_a.status_code == 200
+    assert res_put_a.json()["status"] == "verified"
+
+    # Nakes B cannot PUT Video A (denied)
+    res_put_b = client.put(
+        f"/video-verifications/{setup_data['video_a_id']}",
+        json={"status": "rejected"},
         headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"}
     )
-    assert res_put.status_code in [403, 404]
+    assert res_put_b.status_code in [403, 404]
 
-    # Nakes B cannot DELETE Video A.
-    res_del = client.delete(f"/video-verifications/{setup_data['video_a_id']}", headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"})
-    assert res_del.status_code in [403, 404]
+    # Nakes B cannot DELETE Video A (denied)
+    res_del_b = client.delete(f"/video-verifications/{setup_data['video_a_id']}", headers={"Authorization": f"Bearer {setup_data['nakes_b_token']}"})
+    assert res_del_b.status_code in [403, 404]
 
 def test_facility_isolation_control_schedule_write(client: TestClient, setup_data: dict):
     # Nakes B cannot PUT Control Schedule A.

@@ -1,15 +1,24 @@
 from datetime import datetime
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.patient import Patient
-from app.models.treatment import Treatment
 from app.models.complaint import (
     Complaint,
     ComplaintStatus,
 )
-from app.models.user import User
+
+from app.models.treatment import (
+    Treatment,
+)
+
+from app.models.patient import (
+    Patient,
+)
+
+from app.models.user import (
+    User,
+)
+
 from app.models.notification import (
     NotificationType,
     NotificationReferenceType,
@@ -18,9 +27,11 @@ from app.models.notification import (
 from app.repositories.complaint_repository import (
     ComplaintRepository,
 )
+
 from app.repositories.treatment_repository import (
     TreatmentRepository,
 )
+
 from app.repositories.user_repository import (
     UserRepository,
 )
@@ -29,6 +40,7 @@ from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintUpdate,
 )
+
 from app.services.notification_service import (
     NotificationService,
 )
@@ -39,9 +51,7 @@ class ComplaintService:
     def __init__(self):
 
         self.complaint_repository = ComplaintRepository()
-
         self.treatment_repository = TreatmentRepository()
-
         self.user_repository = UserRepository()
         self.notification_service = NotificationService()
 
@@ -83,6 +93,7 @@ class ComplaintService:
             patient = (
                 db.query(Patient)
                 .filter(
+                    Patient.id == treatment.patient_id,
                     Patient.user_id == current_user.id,
                     Patient.is_active.is_(True),
                 )
@@ -90,13 +101,6 @@ class ComplaintService:
             )
 
             if not patient:
-
-                raise HTTPException(
-                    status_code=404,
-                    detail="Patient profile not found",
-                )
-
-            if treatment.patient_id != patient.id:
 
                 raise HTTPException(
                     status_code=403,
@@ -128,12 +132,11 @@ class ComplaintService:
             )
 
             for nakes in nakes_list:
-
                 self.notification_service.create(
                     db=db,
                     user_id=nakes.id,
-                    title="Complaint Baru",
-                    message=f"{patient_name} mengirim complaint baru.",
+                    title="Keluhan Baru",
+                    message=f"{patient_name} menyampaikan keluhan: {complaint.category}",
                     notification_type=NotificationType.COMPLAINT,
                     reference_type=NotificationReferenceType.COMPLAINT,
                     reference_id=complaint.id,
@@ -184,27 +187,36 @@ class ComplaintService:
                 detail="Complaint not found",
             )
 
-        if complaint_data.status is not None:
+        previous_response = (complaint.response or "").strip()
 
-            complaint.status = complaint_data.status
+        update_data = complaint_data.model_dump(
+            exclude_unset=True,
+        )
 
-            if complaint.status == ComplaintStatus.RESOLVED:
+        for key, value in update_data.items():
+            if hasattr(complaint, key):
+                setattr(
+                    complaint,
+                    key,
+                    value,
+                )
 
-                complaint.resolved_by = current_user.id
-
-                complaint.resolved_at = datetime.utcnow()
-
-        if complaint_data.resolution_note is not None:
-
-            complaint.resolution_note = complaint_data.resolution_note
+        if current_user.role == "nakes" and complaint.handled_by is None:
+            complaint.handled_by = current_user.id
 
         complaint = self.complaint_repository.update(
             db,
             complaint,
         )
 
-        if complaint.status == ComplaintStatus.RESOLVED:
+        new_response = (complaint.response or "").strip()
+        response_just_set = (
+            "response" in update_data
+            and not previous_response
+            and bool(new_response)
+        )
 
+        if response_just_set:
             patient = (
                 db.query(Patient)
                 .join(
@@ -219,14 +231,13 @@ class ComplaintService:
             )
 
             if patient:
-
                 self.notification_service.create(
                     db=db,
                     user_id=patient.user_id,
-                    title="Keluhan Ditanggapi",
-                    message="Keluhan kamu telah ditanggapi. Silakan cek detailnya.",
-                    notification_type=(NotificationType.COMPLAINT),
-                    reference_type=(NotificationReferenceType.COMPLAINT),
+                    title="Balasan Keluhan",
+                    message="Petugas telah membalas keluhan Anda.",
+                    notification_type=NotificationType.COMPLAINT,
+                    reference_type=NotificationReferenceType.COMPLAINT,
                     reference_id=complaint.id,
                 )
 
@@ -263,24 +274,7 @@ class ComplaintService:
         user_id: int,
     ):
 
-        return (
-            db.query(Complaint)
-            .join(
-                Treatment,
-                Complaint.treatment_id == Treatment.id,
-            )
-            .join(
-                Patient,
-                Treatment.patient_id == Patient.id,
-            )
-            .filter(
-                Patient.user_id == user_id,
-                Patient.is_active.is_(True),
-                Treatment.is_active.is_(True),
-                Complaint.is_active.is_(True),
-            )
-            .order_by(
-                Complaint.created_at.desc(),
-            )
-            .all()
+        return self.complaint_repository.get_by_user_id(
+            db,
+            user_id,
         )

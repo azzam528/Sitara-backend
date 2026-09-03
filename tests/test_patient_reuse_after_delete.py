@@ -349,7 +349,7 @@ def test_duplicate_active_phone_nik_mrn_rejected():
         headers=headers,
     )
     assert nik.status_code == 400
-    assert nik.json()["detail"] == "NIK already exists"
+    assert nik.json()["detail"] == "NIK sudah terdaftar dalam sistem."
 
     mrn = client.post(
         "/patients",
@@ -357,7 +357,7 @@ def test_duplicate_active_phone_nik_mrn_rejected():
         headers=headers,
     )
     assert mrn.status_code == 400
-    assert mrn.json()["detail"] == "Medical record number already exists"
+    assert mrn.json()["detail"] == "Nomor rekam medis sudah terdaftar."
 
 
 def test_login_ignores_inactive_user():
@@ -423,3 +423,27 @@ def test_active_non_patient_username_rejected():
     assert response.json()["detail"] == (
         "Nomor WhatsApp sudah terdaftar sebagai akun non-pasien."
     )
+
+def test_future_or_today_birth_date_rejected():
+    from datetime import date, timedelta
+    headers = _nakes_headers()
+    today_str = date.today().isoformat()
+    future_str = (date.today() + timedelta(days=1)).isoformat()
+
+    # Today birth date rejected
+    res_today = client.post(
+        "/patients",
+        json=_payload(phone="081299990001", nik="3201019999000001", medical_record_number="MRN-BD-1", birth_date=today_str),
+        headers=headers,
+    )
+    assert res_today.status_code == 400
+    assert res_today.json()["detail"] == "Tanggal lahir tidak boleh di masa depan."
+
+    # Future birth date rejected
+    res_future = client.post(
+        "/patients",
+        json=_payload(phone="081299990002", nik="3201019999000002", medical_record_number="MRN-BD-2", birth_date=future_str),
+        headers=headers,
+    )
+    assert res_future.status_code == 400
+    assert res_future.json()["detail"] == "Tanggal lahir tidak boleh di masa depan."

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     FACE_DETECTION_THRESHOLD: float = 0.60
     FACE_MIN_SIZE: int = 40
 
+    # VOT Video Evidence Configurations
+    VOT_VIDEO_UPLOAD_DIR: str = "uploads/vot_videos"
+    MAX_VOT_VIDEO_SIZE_MB: int = 50
+
     class Config:
         """
         Memberitahu Pydantic untuk membaca file .env
