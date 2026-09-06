@@ -141,6 +141,36 @@ class ComplaintRepository:
             .all()
         )
 
+
+    def get_by_user_id(
+        self,
+        db: Session,
+        user_id: int,
+    ):
+        return (
+            db.query(Complaint)
+            .options(
+                joinedload(Complaint.treatment)
+                .joinedload(Treatment.patient)
+            )
+            .join(
+                Treatment,
+                Treatment.id == Complaint.treatment_id,
+            )
+            .join(
+                Patient,
+                Patient.id == Treatment.patient_id,
+            )
+            .filter(
+                Patient.user_id == user_id,
+                Complaint.is_active.is_(True),
+                Treatment.is_active.is_(True),
+                Patient.is_active.is_(True),
+            )
+            .order_by(Complaint.created_at.desc())
+            .all()
+        )
+        
     def update(
         self,
         db: Session,
