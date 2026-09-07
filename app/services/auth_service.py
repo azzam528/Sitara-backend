@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -221,7 +222,7 @@ class AuthService:
                 detail="Link aktivasi sudah digunakan.",
             )
 
-        if activation_token.expires_at <= datetime.utcnow():
+        if ensure_utc(activation_token.expires_at) <= utc_now():
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail=(
@@ -266,7 +267,7 @@ class AuthService:
 
         user.must_change_password = False
 
-        activation_token.used_at = datetime.utcnow()
+        activation_token.used_at = utc_now()
 
         db.commit()
         db.refresh(user)

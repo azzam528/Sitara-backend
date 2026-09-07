@@ -1,6 +1,7 @@
 from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 from app.models.patient import GenderEnum
 from app.models.treatment import (
@@ -33,9 +34,7 @@ class PatientDetailTreatment(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class PatientDetailControlSchedule(BaseModel):
@@ -53,9 +52,7 @@ class PatientDetailControlSchedule(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class PatientDetailRefill(BaseModel):
@@ -81,9 +78,7 @@ class PatientDetailRefill(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class PatientDetailResponse(BaseModel):

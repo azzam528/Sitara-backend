@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 from datetime import date, datetime
 
 from fastapi import HTTPException
@@ -93,7 +94,7 @@ class PatientDetailService:
                 .all()
             )
 
-            now = datetime.now()
+            now = utc_now()
 
             for control in controls:
 

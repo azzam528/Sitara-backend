@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -71,7 +72,7 @@ class FaceVerification(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     is_active: Mapped[bool] = mapped_column(

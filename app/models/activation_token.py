@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -53,7 +54,7 @@ class ActivationToken(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now,
         nullable=False,
     )
 
