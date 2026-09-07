@@ -88,6 +88,8 @@ def complete_vot(
         drinking_verified=payload.drinking_verified,
         max_drinking_stage=payload.max_drinking_stage,
         failure_reason=payload.failure_reason,
+        ai_confidence=payload.ai_confidence,
+        ai_details=payload.ai_details,
     )
 
 

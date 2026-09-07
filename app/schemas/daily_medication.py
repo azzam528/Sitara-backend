@@ -91,6 +91,8 @@ class VotCompleteRequest(BaseModel):
     drinking_verified: bool = True
     max_drinking_stage: str | None = None
     failure_reason: str | None = None
+    ai_confidence: float | None = None
+    ai_details: dict | None = None
 
 
 class VotCompleteResponse(BaseModel):
@@ -103,6 +105,8 @@ class VotCompleteResponse(BaseModel):
     can_retry: bool = False
     failure_reason: str | None = None
     max_drinking_stage: str | None = None
+    ai_confidence: float | None = None
+    video_verification_id: int | None = None
 
 
 class VotEscalateRequest(BaseModel):

@@ -59,7 +59,27 @@ class VOTService:
             occurrence.max_drinking_stage = max_stage
 
         # Create or link VideoVerification record idempotently
-        if not occurrence.video_verification_id:
+        video = None
+        if occurrence.video_verification_id:
+            video = (
+                db.query(VideoVerification)
+                .filter(VideoVerification.id == occurrence.video_verification_id)
+                .first()
+            )
+        if video is None:
+            video = (
+                db.query(VideoVerification)
+                .filter(
+                    VideoVerification.medicine_schedule_id == occurrence.medicine_schedule_id,
+                    VideoVerification.verification_date == occurrence.scheduled_date,
+                )
+                .order_by(VideoVerification.id.desc())
+                .first()
+            )
+            if video:
+                occurrence.video_verification_id = video.id
+
+        if not occurrence.video_verification_id or video is None:
             video = VideoVerification(
                 medicine_schedule_id=occurrence.medicine_schedule_id,
                 face_verification_id=occurrence.face_verification_id,
@@ -74,6 +94,10 @@ class VOTService:
             db.add(video)
             db.flush()
             occurrence.video_verification_id = video.id
+        else:
+            # Prevent downgrade if already VERIFIED
+            if video.status != VerificationStatus.VERIFIED:
+                video.status = VerificationStatus.PENDING
 
         occurrence = self.repository.update(db, occurrence)
 
@@ -507,6 +531,64 @@ class VOTService:
             failure_reason="MEDICINE_DETECTION_FAILED",
         )
 
+    def _find_or_create_video_verification(
+        self,
+        db: Session,
+        occurrence: DailyMedication,
+        is_verified: bool = False,
+        ai_confidence: float | None = None,
+    ) -> VideoVerification:
+        video_rec = None
+        if occurrence.video_verification_id:
+            video_rec = (
+                db.query(VideoVerification)
+                .filter(VideoVerification.id == occurrence.video_verification_id)
+                .first()
+            )
+
+        if video_rec is None:
+            video_rec = (
+                db.query(VideoVerification)
+                .filter(
+                    VideoVerification.medicine_schedule_id == occurrence.medicine_schedule_id,
+                    VideoVerification.verification_date == occurrence.scheduled_date,
+                )
+                .order_by(VideoVerification.id.desc())
+                .first()
+            )
+            if video_rec:
+                occurrence.video_verification_id = video_rec.id
+
+        if video_rec is None:
+            new_status = (
+                VerificationStatus.VERIFIED
+                if is_verified
+                else VerificationStatus.PENDING
+            )
+            video_rec = VideoVerification(
+                medicine_schedule_id=occurrence.medicine_schedule_id,
+                face_verification_id=occurrence.face_verification_id,
+                verification_date=occurrence.scheduled_date,
+                video_path="vot_complete/evidence",
+                file_name="vot_complete.mp4",
+                mime_type="video/mp4",
+                file_size=0,
+                status=new_status,
+                ai_confidence=ai_confidence,
+                review_note="AI VOT Automatic Video Evidence",
+            )
+            db.add(video_rec)
+            db.flush()
+            occurrence.video_verification_id = video_rec.id
+        else:
+            if is_verified:
+                video_rec.status = VerificationStatus.VERIFIED
+            if ai_confidence is not None:
+                video_rec.ai_confidence = ai_confidence
+            video_rec.updated_at = datetime.utcnow()
+
+        return video_rec
+
     def complete(
         self,
         db: Session,
@@ -515,6 +597,8 @@ class VOTService:
         drinking_verified: bool = True,
         max_drinking_stage: str | None = None,
         failure_reason: str | None = None,
+        ai_confidence: float | None = None,
+        ai_details: dict | None = None,
     ) -> VotCompleteResponse:
         occurrence = self.daily_medication_service.get_owned(
             db,
@@ -523,6 +607,13 @@ class VOTService:
         )
 
         if occurrence.status == DailyMedicationStatus.VERIFIED:
+            video_rec = self._find_or_create_video_verification(
+                db, occurrence, is_verified=True, ai_confidence=ai_confidence
+            )
+            db.commit()
+            db.refresh(occurrence)
+            if video_rec:
+                db.refresh(video_rec)
             return VotCompleteResponse(
                 daily_medication_id=occurrence.id,
                 status=occurrence.status,
@@ -533,9 +624,18 @@ class VOTService:
                 can_retry=False,
                 failure_reason=occurrence.failure_reason,
                 max_drinking_stage=occurrence.max_drinking_stage,
+                ai_confidence=video_rec.ai_confidence if video_rec else ai_confidence,
+                video_verification_id=video_rec.id if video_rec else occurrence.video_verification_id,
             )
 
         if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            video_rec = self._find_or_create_video_verification(
+                db, occurrence, is_verified=False, ai_confidence=ai_confidence
+            )
+            db.commit()
+            db.refresh(occurrence)
+            if video_rec:
+                db.refresh(video_rec)
             return VotCompleteResponse(
                 daily_medication_id=occurrence.id,
                 status=occurrence.status,
@@ -546,6 +646,8 @@ class VOTService:
                 can_retry=False,
                 failure_reason=occurrence.failure_reason,
                 max_drinking_stage=occurrence.max_drinking_stage,
+                ai_confidence=video_rec.ai_confidence if video_rec else ai_confidence,
+                video_verification_id=video_rec.id if video_rec else occurrence.video_verification_id,
             )
 
         if occurrence.status != DailyMedicationStatus.IN_PROGRESS:
@@ -562,11 +664,18 @@ class VOTService:
 
         # CASE E: DRINKING SUCCESS
         if drinking_verified or max_drinking_stage == "completed":
+            video_rec = self._find_or_create_video_verification(
+                db, occurrence, is_verified=True, ai_confidence=ai_confidence
+            )
             occurrence.vot_step = VotStep.VERIFIED
             occurrence.status = DailyMedicationStatus.VERIFIED
             occurrence.completed_at = datetime.utcnow()
             occurrence.max_drinking_stage = "completed"
+            occurrence.video_verification_id = video_rec.id
             occurrence = self.repository.update(db, occurrence)
+            db.commit()
+            db.refresh(occurrence)
+            db.refresh(video_rec)
 
             self.notification_service.create(
                 db=db,
@@ -575,6 +684,16 @@ class VOTService:
                 message="Verifikasi minum obat berhasil.",
                 notification_type=NotificationType.VIDEO,
                 reference_id=occurrence.id,
+            )
+
+            print(
+                f"[VOT][SYNC][AI RESULT] "
+                f"dailyMedicationId={occurrence.id} "
+                f"videoVerificationId={video_rec.id} "
+                f"aiConfidence={video_rec.ai_confidence} "
+                f"drinkingVerified={drinking_verified} "
+                f"dailyMedicationStatus={occurrence.status.value if hasattr(occurrence.status, 'value') else occurrence.status} "
+                f"videoStatus={video_rec.status.value if hasattr(video_rec.status, 'value') else video_rec.status}"
             )
 
             return VotCompleteResponse(
@@ -587,7 +706,14 @@ class VOTService:
                 can_retry=False,
                 failure_reason=None,
                 max_drinking_stage="completed",
+                ai_confidence=video_rec.ai_confidence,
+                video_verification_id=video_rec.id,
             )
+
+        # Non-auto-verified branch
+        video_rec = self._find_or_create_video_verification(
+            db, occurrence, is_verified=False, ai_confidence=ai_confidence
+        )
 
         # CASE D: DRINKING AMBIGUOUS (nearMouth / withdrawing reached, potential ingestion)
         # NO RETRY, DO NOT INCREMENT ATTEMPT COUNT (PATIENT MUST NOT RE-DRINK)
@@ -599,6 +725,21 @@ class VOTService:
                 reason="DRINKING_AMBIGUOUS",
                 max_stage=max_drinking_stage,
             )
+            if video_rec and ai_confidence is not None:
+                video_rec.ai_confidence = ai_confidence
+            db.commit()
+            db.refresh(occurrence)
+            if video_rec:
+                db.refresh(video_rec)
+            print(
+                f"[VOT][SYNC][AI RESULT] "
+                f"dailyMedicationId={occurrence.id} "
+                f"videoVerificationId={video_rec.id if video_rec else None} "
+                f"aiConfidence={video_rec.ai_confidence if video_rec else ai_confidence} "
+                f"drinkingVerified={drinking_verified} "
+                f"dailyMedicationStatus={occurrence.status.value if hasattr(occurrence.status, 'value') else occurrence.status} "
+                f"videoStatus={video_rec.status.value if video_rec and hasattr(video_rec.status, 'value') else (video_rec.status if video_rec else None)}"
+            )
             return VotCompleteResponse(
                 daily_medication_id=occurrence.id,
                 status=occurrence.status,
@@ -609,6 +750,8 @@ class VOTService:
                 can_retry=False,
                 failure_reason="DRINKING_AMBIGUOUS",
                 max_drinking_stage=max_drinking_stage,
+                ai_confidence=video_rec.ai_confidence if video_rec else ai_confidence,
+                video_verification_id=video_rec.id if video_rec else None,
             )
 
         # If drinking_verified is False and no max_drinking_stage is specified, preserve HTTP 400 contract for backwards compatibility
@@ -625,6 +768,18 @@ class VOTService:
                 )
             else:
                 self.repository.update(db, occurrence)
+            if video_rec and ai_confidence is not None:
+                video_rec.ai_confidence = ai_confidence
+            db.commit()
+            print(
+                f"[VOT][SYNC][AI RESULT] "
+                f"dailyMedicationId={occurrence.id} "
+                f"videoVerificationId={video_rec.id if video_rec else None} "
+                f"aiConfidence={video_rec.ai_confidence if video_rec else ai_confidence} "
+                f"drinkingVerified={drinking_verified} "
+                f"dailyMedicationStatus={occurrence.status.value if hasattr(occurrence.status, 'value') else occurrence.status} "
+                f"videoStatus={video_rec.status.value if video_rec and hasattr(video_rec.status, 'value') else (video_rec.status if video_rec else None)}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Proses minum belum terverifikasi.",
@@ -644,6 +799,21 @@ class VOTService:
                 reason=reason,
                 max_stage=max_drinking_stage,
             )
+            if video_rec and ai_confidence is not None:
+                video_rec.ai_confidence = ai_confidence
+            db.commit()
+            db.refresh(occurrence)
+            if video_rec:
+                db.refresh(video_rec)
+            print(
+                f"[VOT][SYNC][AI RESULT] "
+                f"dailyMedicationId={occurrence.id} "
+                f"videoVerificationId={video_rec.id if video_rec else None} "
+                f"aiConfidence={video_rec.ai_confidence if video_rec else ai_confidence} "
+                f"drinkingVerified={drinking_verified} "
+                f"dailyMedicationStatus={occurrence.status.value if hasattr(occurrence.status, 'value') else occurrence.status} "
+                f"videoStatus={video_rec.status.value if video_rec and hasattr(video_rec.status, 'value') else (video_rec.status if video_rec else None)}"
+            )
             return VotCompleteResponse(
                 daily_medication_id=occurrence.id,
                 status=occurrence.status,
@@ -654,9 +824,26 @@ class VOTService:
                 can_retry=False,
                 failure_reason=reason,
                 max_drinking_stage=max_drinking_stage,
+                ai_confidence=video_rec.ai_confidence if video_rec else ai_confidence,
+                video_verification_id=video_rec.id if video_rec else None,
             )
 
         occurrence = self.repository.update(db, occurrence)
+        if video_rec and ai_confidence is not None:
+            video_rec.ai_confidence = ai_confidence
+        db.commit()
+        db.refresh(occurrence)
+        if video_rec:
+            db.refresh(video_rec)
+        print(
+            f"[VOT][SYNC][AI RESULT] "
+            f"dailyMedicationId={occurrence.id} "
+            f"videoVerificationId={video_rec.id if video_rec else None} "
+            f"aiConfidence={video_rec.ai_confidence if video_rec else ai_confidence} "
+            f"drinkingVerified={drinking_verified} "
+            f"dailyMedicationStatus={occurrence.status.value if hasattr(occurrence.status, 'value') else occurrence.status} "
+            f"videoStatus={video_rec.status.value if video_rec and hasattr(video_rec.status, 'value') else (video_rec.status if video_rec else None)}"
+        )
         return VotCompleteResponse(
             daily_medication_id=occurrence.id,
             status=occurrence.status,
@@ -667,6 +854,8 @@ class VOTService:
             can_retry=True,
             failure_reason=reason,
             max_drinking_stage=max_drinking_stage,
+            ai_confidence=video_rec.ai_confidence if video_rec else ai_confidence,
+            video_verification_id=video_rec.id if video_rec else None,
         )
 
     def upload_video(
@@ -750,13 +939,32 @@ class VOTService:
                 .first()
             )
 
+        if video_rec is None:
+            video_rec = (
+                db.query(VideoVerification)
+                .filter(
+                    VideoVerification.medicine_schedule_id == occurrence.medicine_schedule_id,
+                    VideoVerification.verification_date == occurrence.scheduled_date,
+                )
+                .order_by(VideoVerification.id.desc())
+                .first()
+            )
+            if video_rec:
+                occurrence.video_verification_id = video_rec.id
+
         if video_rec is not None:
             video_rec.video_path = rel_path
             video_rec.file_name = safe_filename
             video_rec.mime_type = content_type or "video/mp4"
             video_rec.file_size = file_size
             video_rec.updated_at = datetime.utcnow()
+            # If already VERIFIED, do NOT downgrade it!
         else:
+            init_status = (
+                VerificationStatus.VERIFIED
+                if occurrence.status == DailyMedicationStatus.VERIFIED
+                else VerificationStatus.PENDING
+            )
             video_rec = VideoVerification(
                 medicine_schedule_id=occurrence.medicine_schedule_id,
                 face_verification_id=occurrence.face_verification_id,
@@ -765,7 +973,7 @@ class VOTService:
                 file_name=safe_filename,
                 mime_type=content_type or "video/mp4",
                 file_size=file_size,
-                status=VerificationStatus.PENDING,
+                status=init_status,
                 review_note="AI VOT Automatic Video Evidence",
             )
             db.add(video_rec)
