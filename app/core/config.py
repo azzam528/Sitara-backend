@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Face Recognition Configurations
     FACE_MODEL_VERSION: str = "opencv_yunet_sface_v1"
-    FACE_SIMILARITY_THRESHOLD: float = 0.70
+    FACE_SIMILARITY_THRESHOLD: float = 0.63
     FACE_DETECTION_THRESHOLD: float = 0.60
     FACE_MIN_SIZE: int = 40
 

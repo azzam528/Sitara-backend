@@ -24,7 +24,7 @@ def test_similarity_calculation_non_matching():
     v2 = [0.0] * 64 + [1.0] + [0.0] * 63
     score = service.calculate_similarity(v1, v2)
     assert isinstance(score, float)
-    assert score < 0.70  # Di bawah threshold
+    assert score < 0.63  # Di bawah threshold identity 0.63
 
 
 def test_embedding_normalization_polymorphism():

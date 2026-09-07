@@ -314,8 +314,8 @@ def test_01_verify_valid_face_returns_verified():
     data = response.json()
     assert data["verified"] is True
     assert data["status"] == "verified"
-    assert data["similarity_score"] >= 0.70
-    assert data["threshold"] == 0.70
+    assert data["similarity_score"] >= 0.63
+    assert data["threshold"] == 0.63
     assert data["face_verification_id"] > 0
 
 
@@ -344,7 +344,7 @@ def test_02_verify_wrong_face_returns_failed():
     data = response.json()
     assert data["verified"] is False
     assert data["status"] == "failed"
-    assert data["similarity_score"] < 0.70
+    assert data["similarity_score"] < 0.63
     assert data["face_verification_id"] > 0
 
 
@@ -611,7 +611,7 @@ def test_14_failed_verification_creates_audit_record():
     rec = db.query(FaceVerification).filter(FaceVerification.id == verification_id).first()
     assert rec is not None
     assert rec.status == FaceVerificationStatus.FAILED
-    assert rec.similarity_score < 0.70
+    assert rec.similarity_score < 0.63
     db.close()
 
 

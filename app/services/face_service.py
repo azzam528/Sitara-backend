@@ -203,8 +203,8 @@ class FaceService:
             current_embedding_vector,
         )
 
-        # 10. Compare similarity against development threshold
-        threshold = settings.FACE_SIMILARITY_THRESHOLD  # Default 0.70
+        # 10. Compare similarity against patient face identity threshold
+        threshold = settings.FACE_SIMILARITY_THRESHOLD  # Default 0.63
         is_verified = (similarity_score >= threshold)
         verification_status = (
             FaceVerificationStatus.VERIFIED if is_verified else FaceVerificationStatus.FAILED

@@ -320,8 +320,8 @@ def test_owner_can_verify_face_and_advance_vot_step(monkeypatch):
     assert body["daily_medication_id"] == daily_id
     assert body["medicine_schedule_id"] == started["medicine_schedule_id"]
     assert body["face_verification_id"] > 0
-    assert body["similarity_score"] >= 0.70
-    assert body["threshold"] == 0.70
+    assert body["similarity_score"] >= settings.FACE_SIMILARITY_THRESHOLD
+    assert body["threshold"] == settings.FACE_SIMILARITY_THRESHOLD
 
     db = TestingSessionLocal()
     occurrence = db.query(DailyMedication).filter(DailyMedication.id == daily_id).one()
@@ -454,3 +454,85 @@ def test_already_face_verified_does_not_move_back_or_duplicate(monkeypatch):
     assert occurrence.face_verification_id == face_id
     assert db.query(func.count(FaceVerification.id)).scalar() == 1
     db.close()
+
+
+@pytest.mark.parametrize(
+    "score,should_pass",
+    [
+        (0.62, False),
+        (0.6299, False),
+        (0.63, True),
+        (0.6392, True),
+        (0.65, True),
+        (0.6999, True),
+        (0.70, True),
+        (0.95, True),
+    ],
+)
+def test_face_identity_threshold_0_63_on_vot_face_verify(monkeypatch, score, should_pass):
+    _install_face_score(monkeypatch, score)
+    _seed_embedding()
+    daily_id = _start_vot_for_a()["daily_medication_id"]
+
+    response = _face_verify(daily_id)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["threshold"] == 0.63
+    assert body["threshold"] == settings.FACE_SIMILARITY_THRESHOLD
+    assert body["similarity_score"] == score
+    assert (score >= settings.FACE_SIMILARITY_THRESHOLD) is should_pass
+    assert body["verified"] is should_pass
+
+    db = TestingSessionLocal()
+    occurrence = db.query(DailyMedication).filter(DailyMedication.id == daily_id).one()
+
+    if should_pass:
+        assert body["status"] == "verified"
+        assert body["vot_step"] == "face_verified"
+        assert occurrence.vot_step == VotStep.FACE_VERIFIED
+        assert occurrence.status == DailyMedicationStatus.IN_PROGRESS
+        assert occurrence.attempt_count == 0
+        assert body["can_retry"] is False
+    else:
+        assert body["status"] == "failed"
+        assert body["vot_step"] == "waiting"
+        assert occurrence.vot_step == VotStep.WAITING
+        assert occurrence.status == DailyMedicationStatus.IN_PROGRESS
+        assert occurrence.attempt_count == 1
+        assert body["can_retry"] is True
+
+    db.close()
+
+
+def test_similarity_0_65_allows_medicine_detect_gate(monkeypatch):
+    from app.services.medicine_detection_service import MedicineDetectionService
+
+    _install_face_score(monkeypatch, 0.65)
+    monkeypatch.setattr(
+        MedicineDetectionService,
+        "detect_expected_medicine",
+        lambda self, image_bytes, expected_medicine: {
+            "medicine_match": True,
+            "detected_medicine": expected_medicine,
+            "confidence": 0.99,
+            "bounding_box": None,
+            "message": "Obat cocok.",
+        },
+    )
+    _seed_embedding()
+    daily_id = _start_vot_for_a()["daily_medication_id"]
+
+    face = _face_verify(daily_id)
+    assert face.status_code == 200
+    assert face.json()["verified"] is True
+    assert face.json()["vot_step"] == "face_verified"
+
+    medicine = client.post(
+        "/vot/medicine-detect",
+        headers=_patient_a_headers(),
+        data={"daily_medication_id": str(daily_id)},
+        files={"image": ("med.jpg", b"fake-image", "image/jpeg")},
+    )
+    assert medicine.status_code == 200
+    assert medicine.json()["vot_step"] == "medicine_matched"
