@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 from app.models.patient import GenderEnum
 
@@ -95,7 +96,7 @@ class PatientResponse(BaseModel):
 
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 # ==========================

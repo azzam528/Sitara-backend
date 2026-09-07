@@ -9,6 +9,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
 )
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 
 class ControlScheduleStatus(str, Enum):
@@ -60,6 +61,4 @@ class ControlScheduleResponse(BaseModel):
 
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG

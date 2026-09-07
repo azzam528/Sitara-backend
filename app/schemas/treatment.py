@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 from app.models.treatment import (
     TreatmentPhase,
@@ -51,7 +52,7 @@ class PatientTreatmentResponse(BaseModel):
     pmo_phone: str | None = None
     clinical_note: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 # ==========================================
@@ -76,7 +77,7 @@ class TreatmentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 # ==========================================
@@ -94,6 +95,4 @@ class MyTreatmentResponse(BaseModel):
     status: TreatmentStatus
     doctor_name: str
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG

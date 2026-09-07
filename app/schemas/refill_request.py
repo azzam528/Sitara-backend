@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 
 class RefillRequestStatus(str, Enum):
@@ -18,7 +19,7 @@ class PickupFacilityResponse(BaseModel):
     latitude: float | None
     longitude: float | None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class RefillCreate(BaseModel):
@@ -71,9 +72,7 @@ class RefillResponse(BaseModel):
 
     pickup_facility: PickupFacilityResponse | None = None
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class RefillPatientResponse(BaseModel):
@@ -82,21 +81,21 @@ class RefillPatientResponse(BaseModel):
     nik: str | None = None
     medical_record_number: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class RefillMedicineResponse(BaseModel):
     id: int
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class RefillTreatmentResponse(BaseModel):
     id: int
     patient: RefillPatientResponse
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class RefillListResponse(BaseModel):
@@ -123,4 +122,4 @@ class RefillListResponse(BaseModel):
 
     pickup_facility: PickupFacilityResponse | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG

@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 import os
 import uuid
 from datetime import datetime
@@ -564,7 +565,7 @@ class VOTService:
         if drinking_verified or max_drinking_stage == "completed":
             occurrence.vot_step = VotStep.VERIFIED
             occurrence.status = DailyMedicationStatus.VERIFIED
-            occurrence.completed_at = datetime.utcnow()
+            occurrence.completed_at = utc_now()
             occurrence.max_drinking_stage = "completed"
             occurrence = self.repository.update(db, occurrence)
 
@@ -755,7 +756,7 @@ class VOTService:
             video_rec.file_name = safe_filename
             video_rec.mime_type = content_type or "video/mp4"
             video_rec.file_size = file_size
-            video_rec.updated_at = datetime.utcnow()
+            video_rec.updated_at = utc_now()
         else:
             video_rec = VideoVerification(
                 medicine_schedule_id=occurrence.medicine_schedule_id,

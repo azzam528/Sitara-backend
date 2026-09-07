@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 
 class ComplaintStatus(str, Enum):
@@ -31,14 +32,14 @@ class PatientComplaintResponse(BaseModel):
     phone: str
     address: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class TreatmentComplaintResponse(BaseModel):
     id: int
     patient: PatientComplaintResponse
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class ComplaintResponse(BaseModel):
@@ -56,6 +57,4 @@ class ComplaintResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG

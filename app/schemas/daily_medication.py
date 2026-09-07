@@ -1,6 +1,7 @@
 from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 from app.models.daily_medication import DailyMedicationStatus, VotStep
 from app.schemas.medicine_detection import BoundingBox
@@ -19,7 +20,7 @@ class TodayMedicationResponse(BaseModel):
     vot_step: VotStep
     eligible: bool
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class VotStartRequest(BaseModel):
@@ -42,7 +43,7 @@ class VotSessionResponse(BaseModel):
     failure_reason: str | None = None
     max_drinking_stage: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class VotStartResponse(BaseModel):
@@ -120,4 +121,4 @@ class VotVideoUploadResponse(BaseModel):
     file_size: int
     status: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG

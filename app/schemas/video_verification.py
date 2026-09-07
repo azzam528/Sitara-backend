@@ -2,6 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 
 class VerificationStatus(str, Enum):
@@ -20,7 +21,7 @@ class PatientVideoResponse(BaseModel):
     pmo_name: str | None = None
     pmo_phone: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class TreatmentVideoResponse(BaseModel):
@@ -28,7 +29,7 @@ class TreatmentVideoResponse(BaseModel):
     phase: str | None = None
     regimen: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class VideoVerificationCreate(BaseModel):
@@ -68,6 +69,4 @@ class VideoVerificationResponse(BaseModel):
     patient: PatientVideoResponse | None = None
     treatment: TreatmentVideoResponse | None = None
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG

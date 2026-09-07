@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 from datetime import datetime
 import json
 from fastapi import HTTPException, UploadFile, status
@@ -217,7 +218,7 @@ class FaceService:
             similarity_score=round(similarity_score, 4),
             threshold=threshold,
             status=verification_status,
-            captured_at=datetime.utcnow(),
+            captured_at=utc_now(),
         )
         created_verification = self.face_repository.create_verification(db, verification_record)
 

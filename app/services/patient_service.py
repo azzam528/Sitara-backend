@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 import secrets
 import string
 from datetime import date, datetime, timedelta
@@ -254,7 +255,7 @@ class PatientService:
             activation_token = ActivationToken(
                 user_id=user.id,
                 token_hash=token_hash,
-                expires_at=(datetime.utcnow() + timedelta(hours=24)),
+                expires_at=(utc_now() + timedelta(hours=24)),
             )
 
             self.activation_token_repository.create(
@@ -435,7 +436,7 @@ class PatientService:
         activation_token = ActivationToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=(datetime.utcnow() + timedelta(hours=24)),
+            expires_at=(utc_now() + timedelta(hours=24)),
         )
 
         self.activation_token_repository.create(

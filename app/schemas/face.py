@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 
 class FaceRegisterResponse(BaseModel):
@@ -13,7 +14,7 @@ class FaceStatusResponse(BaseModel):
     model_version: str | None = None
     registered_at: datetime | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG
 
 
 class FaceVerifyResponse(BaseModel):
@@ -24,4 +25,4 @@ class FaceVerifyResponse(BaseModel):
     status: str
     message: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = BASE_SCHEMA_CONFIG

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, field_serializer
+from app.schemas.base import BaseSchema, BASE_SCHEMA_CONFIG
 
 from app.models.notification import (
     NotificationType,
@@ -27,9 +28,7 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = BASE_SCHEMA_CONFIG
 
     @field_serializer("created_at", "updated_at", when_used="json")
     def serialize_datetime_utc(self, dt: datetime | None) -> str | None:

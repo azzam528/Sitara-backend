@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -39,10 +40,10 @@ class HealthFacility(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=utc_now, onupdate=utc_now
     )
 
     users: Mapped[list["User"]] = relationship(

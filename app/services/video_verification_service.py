@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 import os
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
@@ -443,7 +444,7 @@ class VideoVerificationService:
                 if data.status == VerificationStatus.VERIFIED:
                     daily_med.status = DailyMedicationStatus.VERIFIED
                     daily_med.vot_step = VotStep.VERIFIED
-                    daily_med.completed_at = datetime.utcnow()
+                    daily_med.completed_at = utc_now()
                 elif data.status == VerificationStatus.REJECTED:
                     daily_med.status = DailyMedicationStatus.REJECTED
                 db.flush()

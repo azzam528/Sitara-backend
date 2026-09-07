@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now, ensure_utc
 from datetime import datetime
 
 from fastapi import HTTPException
@@ -268,7 +269,7 @@ class RefillService:
 
                 refill.approved_by = current_user.id
 
-                refill.approved_at = datetime.utcnow()
+                refill.approved_at = utc_now()
 
         # -------------------------------------------------
         # UPDATE NURSE NOTE

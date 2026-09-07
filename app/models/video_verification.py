@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 from datetime import datetime, date
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -101,13 +102,13 @@ class VideoVerification(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
     )
 
     medicine_schedule = relationship(
