@@ -22,6 +22,15 @@ class TodayMedicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PatientProgressResponse(BaseModel):
+    adherence_percentage: float | None = None
+    successful_occurrences: int = 0
+    failed_occurrences: int = 0
+    pending_review_occurrences: int = 0
+    final_due_occurrences: int = 0
+    streak_days: int = 0
+
+
 class VotStartRequest(BaseModel):
     medicine_schedule_id: int
 
