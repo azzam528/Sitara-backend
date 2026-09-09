@@ -32,6 +32,19 @@ class TreatmentVideoResponse(BaseModel):
     model_config = BASE_SCHEMA_CONFIG
 
 
+class FaceVerificationVideoResponse(BaseModel):
+    id: int
+    patient_id: int
+    medicine_schedule_id: int | None = None
+    similarity_score: float
+    threshold: float
+    status: str
+    captured_at: datetime | None = None
+    created_at: datetime | None = None
+
+    model_config = BASE_SCHEMA_CONFIG
+
+
 class VideoVerificationCreate(BaseModel):
     medicine_schedule_id: int
     face_verification_id: int | None = None
@@ -68,5 +81,6 @@ class VideoVerificationResponse(BaseModel):
 
     patient: PatientVideoResponse | None = None
     treatment: TreatmentVideoResponse | None = None
+    face_verification: FaceVerificationVideoResponse | None = None
 
     model_config = BASE_SCHEMA_CONFIG

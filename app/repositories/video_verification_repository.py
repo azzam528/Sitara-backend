@@ -54,6 +54,9 @@ class VideoVerificationRepository:
     ):
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.face_verification),
+            )
             .join(
                 MedicineSchedule,
                 MedicineSchedule.id == VideoVerification.medicine_schedule_id,
@@ -108,6 +111,9 @@ class VideoVerificationRepository:
     ):
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.face_verification),
+            )
             .join(
                 MedicineSchedule,
                 MedicineSchedule.id == VideoVerification.medicine_schedule_id,
@@ -176,6 +182,9 @@ class VideoVerificationRepository:
     ):
         return (
             db.query(VideoVerification)
+            .options(
+                joinedload(VideoVerification.face_verification),
+            )
             .join(
                 MedicineSchedule,
                 MedicineSchedule.id == VideoVerification.medicine_schedule_id,
