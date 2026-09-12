@@ -105,7 +105,7 @@ def setup_data(db_session: Session):
         dosage="450mg",
         quantity_initial=30,
         quantity_remaining=30,
-        drink_time=time(8, 0),
+        drink_time=time(0, 0),
         is_active=True,
     )
     db_session.add(sched_a)
@@ -223,7 +223,7 @@ def test_medicine_failure_attempt_2(client: TestClient, setup_data: dict, monkey
     assert data_med["failure_reason"] == "MEDICINE_DETECTION_FAILED"
 
 
-def test_failure_attempt_3_escalates_to_needs_review(client: TestClient, setup_data: dict, monkeypatch):
+def test_failure_attempt_3_does_not_escalate_to_needs_review(client: TestClient, setup_data: dict, monkeypatch, db_session: Session):
     headers = {"Authorization": f"Bearer {setup_data['token_patient_a']}"}
     res_start = client.post("/vot/start", json={"medicine_schedule_id": setup_data["sched_a"].id}, headers=headers)
     daily_id = res_start.json()["daily_medication_id"]
@@ -243,29 +243,232 @@ def test_failure_attempt_3_escalates_to_needs_review(client: TestClient, setup_d
     res1 = client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers)
     assert res1.json()["attempt_count"] == 1
     assert res1.json()["can_retry"] is True
+    assert res1.json()["max_attempt_reached"] is False
 
     # Attempt 2
     dummy_img.seek(0)
     res2 = client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers)
     assert res2.json()["attempt_count"] == 2
     assert res2.json()["can_retry"] is True
+    assert res2.json()["max_attempt_reached"] is False
 
-    # Attempt 3 -> Escalation
+    # Attempt 3 -> max attempt, but daily_medication stays startable
     dummy_img.seek(0)
     res3 = client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers)
     assert res3.status_code == 200
     data3 = res3.json()
     assert data3["attempt_count"] == 3
     assert data3["can_retry"] is False
+    assert data3["max_attempt_reached"] is True
     assert data3["status"] == "failed"
     assert data3["failure_reason"] == "FACE_VERIFICATION_FAILED"
+    assert data3["vot_step"] == "waiting"
 
-    # Verify DailyMedication escalated to needs_review
     res_sess = client.get(f"/vot/{daily_id}", headers=headers)
     assert res_sess.status_code == 200
-    assert res_sess.json()["status"] == "needs_review"
-    assert res_sess.json()["attempt_count"] == 3
-    assert res_sess.json()["can_retry"] is False
+    sess = res_sess.json()
+    assert sess["status"] == "in_progress"
+    assert sess["status"] != "needs_review"
+    assert sess["status"] != "verified"
+    assert sess["attempt_count"] == 3
+    assert sess["can_retry"] is False
+    assert sess["max_attempt_reached"] is True
+    assert sess["vot_step"] == "waiting"
+
+    dm = db_session.query(DailyMedication).filter(DailyMedication.id == daily_id).first()
+    assert dm.status == DailyMedicationStatus.IN_PROGRESS
+    assert dm.vot_step == VotStep.WAITING
+    assert dm.completed_at is None
+    assert dm.video_verification_id is None
+    assert dm.attempt_count == 3
+
+    notifs = db_session.query(Notification).filter(Notification.user_id == setup_data["user_nakes_a"].id).all()
+    assert len(notifs) == 0
+
+
+def test_face_max_attempt_schedule_remains_available_and_vot_can_restart(
+    client: TestClient, setup_data: dict, monkeypatch, db_session: Session
+):
+    headers = {"Authorization": f"Bearer {setup_data['token_patient_a']}"}
+    schedule_id = setup_data["sched_a"].id
+    res_start = client.post("/vot/start", json={"medicine_schedule_id": schedule_id}, headers=headers)
+    daily_id = res_start.json()["daily_medication_id"]
+
+    from app.services.face_service import FaceService
+    class MockFaceFail:
+        face_verification_id = 99
+        verified = False
+        similarity_score = 0.45
+        threshold = 0.70
+        status = "failed"
+        message = "Wajah tidak cocok."
+    monkeypatch.setattr(FaceService, "verify_face", lambda *args, **kwargs: MockFaceFail())
+
+    dummy_img = io.BytesIO(b"fake_image_bytes")
+    for _ in range(3):
+        dummy_img.seek(0)
+        client.post(
+            "/vot/face-verify",
+            data={"daily_medication_id": daily_id},
+            files={"image": ("face.jpg", dummy_img, "image/jpeg")},
+            headers=headers,
+        )
+
+    today = client.get("/medications/today", headers=headers)
+    assert today.status_code == 200
+    items = today.json()
+    assert len(items) == 1
+    assert items[0]["daily_medication_id"] == daily_id
+    assert items[0]["medicine_schedule_id"] == schedule_id
+    assert items[0]["status"] == "in_progress"
+    assert items[0]["eligible"] is True
+
+    restart = client.post("/vot/start", json={"medicine_schedule_id": schedule_id}, headers=headers)
+    assert restart.status_code == 200
+    restarted = restart.json()
+    assert restarted["daily_medication_id"] == daily_id
+    assert restarted["status"] == "in_progress"
+    assert restarted["vot_step"] == "waiting"
+    assert restarted["attempt_count"] == 0
+
+    dummy_img.seek(0)
+    retry_face = client.post(
+        "/vot/face-verify",
+        data={"daily_medication_id": daily_id},
+        files={"image": ("face.jpg", dummy_img, "image/jpeg")},
+        headers=headers,
+    )
+    assert retry_face.status_code == 200
+    assert retry_face.json()["attempt_count"] == 1
+    assert retry_face.json()["can_retry"] is True
+    assert retry_face.json()["max_attempt_reached"] is False
+    assert retry_face.json()["verified"] is False
+
+    dm = db_session.query(DailyMedication).filter(DailyMedication.id == daily_id).first()
+    assert dm.status == DailyMedicationStatus.IN_PROGRESS
+    assert dm.completed_at is None
+
+
+def test_medicine_failure_attempt_3_does_not_escalate_to_needs_review(
+    client: TestClient, setup_data: dict, monkeypatch, db_session: Session
+):
+    headers = {"Authorization": f"Bearer {setup_data['token_patient_a']}"}
+    res_start = client.post("/vot/start", json={"medicine_schedule_id": setup_data["sched_a"].id}, headers=headers)
+    daily_id = res_start.json()["daily_medication_id"]
+
+    from app.services.face_service import FaceService
+    from app.services.medicine_detection_service import MedicineDetectionService
+    class MockFaceSuccess:
+        face_verification_id = 101
+        verified = True
+        similarity_score = 0.95
+        threshold = 0.70
+        status = "verified"
+        message = "Wajah cocok."
+    monkeypatch.setattr(FaceService, "verify_face", lambda *args, **kwargs: MockFaceSuccess())
+    monkeypatch.setattr(
+        MedicineDetectionService,
+        "detect_expected_medicine",
+        lambda *args, **kwargs: {
+            "medicine_match": False,
+            "detected_medicine": None,
+            "confidence": 0.0,
+            "message": "Obat tidak terdeteksi.",
+        },
+    )
+
+    client.post(
+        "/vot/face-verify",
+        data={"daily_medication_id": daily_id},
+        files={"image": ("face.jpg", io.BytesIO(b"img"), "image/jpeg")},
+        headers=headers,
+    )
+
+    dummy_med_img = io.BytesIO(b"fake_med_bytes")
+    for expected_attempt in (1, 2, 3):
+        dummy_med_img.seek(0)
+        res_med = client.post(
+            "/vot/medicine-detect",
+            data={"daily_medication_id": daily_id},
+            files={"image": ("med.jpg", dummy_med_img, "image/jpeg")},
+            headers=headers,
+        )
+        assert res_med.status_code == 200
+        data_med = res_med.json()
+        assert data_med["attempt_count"] == expected_attempt
+        assert data_med["status"] == "in_progress"
+        assert data_med["vot_step"] == "face_verified"
+        if expected_attempt < 3:
+            assert data_med["can_retry"] is True
+            assert data_med["max_attempt_reached"] is False
+        else:
+            assert data_med["can_retry"] is False
+            assert data_med["max_attempt_reached"] is True
+
+    dm = db_session.query(DailyMedication).filter(DailyMedication.id == daily_id).first()
+    assert dm.status == DailyMedicationStatus.IN_PROGRESS
+    assert dm.vot_step == VotStep.FACE_VERIFIED
+    assert dm.completed_at is None
+    assert dm.video_verification_id is None
+
+    restart = client.post("/vot/start", json={"medicine_schedule_id": setup_data["sched_a"].id}, headers=headers)
+    assert restart.status_code == 200
+    assert restart.json()["status"] == "in_progress"
+    assert restart.json()["vot_step"] == "waiting"
+    assert restart.json()["attempt_count"] == 0
+
+
+def test_video_analysis_needs_review_cannot_restart_vot(
+    client: TestClient, setup_data: dict, monkeypatch, db_session: Session
+):
+    headers = {"Authorization": f"Bearer {setup_data['token_patient_a']}"}
+    res_start = client.post("/vot/start", json={"medicine_schedule_id": setup_data["sched_a"].id}, headers=headers)
+    daily_id = res_start.json()["daily_medication_id"]
+
+    from app.services.face_service import FaceService
+    from app.services.medicine_detection_service import MedicineDetectionService
+    class MockFaceSuccess:
+        face_verification_id = 101
+        verified = True
+        similarity_score = 0.95
+        threshold = 0.70
+        status = "verified"
+        message = "Wajah cocok."
+    monkeypatch.setattr(FaceService, "verify_face", lambda *args, **kwargs: MockFaceSuccess())
+    monkeypatch.setattr(
+        MedicineDetectionService,
+        "detect_expected_medicine",
+        lambda *args, **kwargs: {
+            "medicine_match": True,
+            "detected_medicine": "Rifampicin",
+            "confidence": 0.98,
+            "message": "Obat cocok.",
+        },
+    )
+
+    client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", io.BytesIO(b"img"), "image/jpeg")}, headers=headers)
+    client.post("/vot/medicine-detect", data={"daily_medication_id": daily_id}, files={"image": ("med.jpg", io.BytesIO(b"img"), "image/jpeg")}, headers=headers)
+    client.post(
+        "/vot/complete",
+        json={"daily_medication_id": daily_id, "drinking_verified": False, "max_drinking_stage": "nearMouth"},
+        headers=headers,
+    )
+
+    restart = client.post("/vot/start", json={"medicine_schedule_id": setup_data["sched_a"].id}, headers=headers)
+    assert restart.status_code == 200
+    assert restart.json()["status"] == "needs_review"
+
+    face_after = client.post(
+        "/vot/face-verify",
+        data={"daily_medication_id": daily_id},
+        files={"image": ("face.jpg", io.BytesIO(b"img"), "image/jpeg")},
+        headers=headers,
+    )
+    assert face_after.status_code == 400
+    assert face_after.json()["detail"] == "VOT sedang dalam peninjauan Nakes."
+
+    dm = db_session.query(DailyMedication).filter(DailyMedication.id == daily_id).first()
+    assert dm.status == DailyMedicationStatus.NEEDS_REVIEW
 
 
 def test_drinking_timeout_waiting_increments_attempt(client: TestClient, setup_data: dict, monkeypatch):
@@ -489,21 +692,33 @@ def test_notification_routing_facility_isolation(client: TestClient, setup_data:
     daily_id = res_start.json()["daily_medication_id"]
 
     from app.services.face_service import FaceService
-    class MockFaceFail:
-        face_verification_id = 99
-        verified = False
-        similarity_score = 0.45
+    from app.services.medicine_detection_service import MedicineDetectionService
+    class MockFaceSuccess:
+        face_verification_id = 101
+        verified = True
+        similarity_score = 0.95
         threshold = 0.70
-        status = "failed"
-        message = "Wajah tidak cocok."
-    monkeypatch.setattr(FaceService, "verify_face", lambda *args, **kwargs: MockFaceFail())
+        status = "verified"
+        message = "Wajah cocok."
+    monkeypatch.setattr(FaceService, "verify_face", lambda *args, **kwargs: MockFaceSuccess())
+    monkeypatch.setattr(
+        MedicineDetectionService,
+        "detect_expected_medicine",
+        lambda *args, **kwargs: {
+            "medicine_match": True,
+            "detected_medicine": "Rifampicin",
+            "confidence": 0.98,
+            "message": "Obat cocok.",
+        },
+    )
 
-    dummy_img = io.BytesIO(b"fake_image_bytes")
-    client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers_pat)
-    dummy_img.seek(0)
-    client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers_pat)
-    dummy_img.seek(0)
-    client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", dummy_img, "image/jpeg")}, headers=headers_pat)
+    client.post("/vot/face-verify", data={"daily_medication_id": daily_id}, files={"image": ("face.jpg", io.BytesIO(b"img"), "image/jpeg")}, headers=headers_pat)
+    client.post("/vot/medicine-detect", data={"daily_medication_id": daily_id}, files={"image": ("med.jpg", io.BytesIO(b"img"), "image/jpeg")}, headers=headers_pat)
+    client.post(
+        "/vot/complete",
+        json={"daily_medication_id": daily_id, "drinking_verified": False, "max_drinking_stage": "nearMouth"},
+        headers=headers_pat,
+    )
 
     # Check notifications
     notifs_nakes_a = db_session.query(Notification).filter(Notification.user_id == setup_data["user_nakes_a"].id).all()

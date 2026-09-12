@@ -35,6 +35,12 @@ from app.services.medicine_detection_service import (
 )
 from app.services.notification_service import NotificationService
 
+PRE_VIDEO_VOT_STEPS = (VotStep.WAITING, VotStep.FACE_VERIFIED)
+PRE_VIDEO_FAILURE_REASONS = (
+    "FACE_VERIFICATION_FAILED",
+    "MEDICINE_DETECTION_FAILED",
+)
+
 
 class VOTService:
 
@@ -46,6 +52,21 @@ class VOTService:
         self.medicine_detection_service = medicine_detection_service
         self.notification_service = NotificationService()
 
+    def _pre_video_max_attempts_reached(self, occurrence: DailyMedication) -> bool:
+        return (
+            occurrence.attempt_count >= 3
+            and occurrence.vot_step in PRE_VIDEO_VOT_STEPS
+        )
+
+    def _reset_pre_video_session(self, occurrence: DailyMedication) -> DailyMedication:
+        occurrence.attempt_count = 0
+        occurrence.failure_reason = None
+        occurrence.vot_step = VotStep.WAITING
+        occurrence.face_verification_id = None
+        occurrence.status = DailyMedicationStatus.IN_PROGRESS
+        occurrence.completed_at = None
+        return occurrence
+
     def _handle_escalation(
         self,
         db: Session,
@@ -54,6 +75,7 @@ class VOTService:
         reason: str,
         max_stage: str | None = None,
     ) -> DailyMedication:
+        """Escalate to Nakes review. Call only after video analysis (POST /vot/complete)."""
         occurrence.status = DailyMedicationStatus.NEEDS_REVIEW
         occurrence.failure_reason = reason
         if max_stage:
@@ -180,6 +202,11 @@ class VOTService:
             )
 
         if occurrence.status == DailyMedicationStatus.NEEDS_REVIEW:
+            # Data lama: Face/Medicine max-attempt salah di-eskalasi ke needs_review.
+            # Video analysis review tetap dikunci sampai Nakes memutuskan.
+            if occurrence.failure_reason in PRE_VIDEO_FAILURE_REASONS:
+                occurrence = self._reset_pre_video_session(occurrence)
+                occurrence = self.repository.update(db, occurrence)
             return VotStartResponse(
                 daily_medication_id=occurrence.id,
                 medicine_schedule_id=occurrence.medicine_schedule_id,
@@ -201,6 +228,12 @@ class VOTService:
 
         if occurrence.status == DailyMedicationStatus.PENDING:
             occurrence.status = DailyMedicationStatus.IN_PROGRESS
+            occurrence = self.repository.update(db, occurrence)
+        elif (
+            occurrence.status == DailyMedicationStatus.IN_PROGRESS
+            and self._pre_video_max_attempts_reached(occurrence)
+        ):
+            occurrence = self._reset_pre_video_session(occurrence)
             occurrence = self.repository.update(db, occurrence)
 
         return VotStartResponse(
@@ -231,6 +264,10 @@ class VOTService:
             occurrence.status == DailyMedicationStatus.IN_PROGRESS
             and occurrence.attempt_count < 3
         )
+        max_attempt_reached = (
+            occurrence.status == DailyMedicationStatus.IN_PROGRESS
+            and self._pre_video_max_attempts_reached(occurrence)
+        )
 
         return VotSessionResponse(
             daily_medication_id=occurrence.id,
@@ -245,6 +282,7 @@ class VOTService:
             vot_step=occurrence.vot_step,
             attempt_count=occurrence.attempt_count,
             can_retry=can_retry,
+            max_attempt_reached=max_attempt_reached,
             failure_reason=occurrence.failure_reason,
             max_drinking_stage=occurrence.max_drinking_stage,
         )
@@ -307,6 +345,12 @@ class VOTService:
                 detail="Face verification tidak dapat dilakukan pada tahap VOT ini.",
             )
 
+        if occurrence.attempt_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batas maksimal 3 percobaan verifikasi wajah tercapai. Silakan mulai AI VOT kembali.",
+            )
+
         medicine_schedule_id = occurrence.medicine_schedule_id
         face_result = self.face_service.verify_face(
             db=db,
@@ -342,34 +386,20 @@ class VOTService:
                 message=face_result.message,
                 attempt_count=occurrence.attempt_count,
                 can_retry=False,
+                max_attempt_reached=False,
                 failure_reason=None,
             )
 
-        # Failure handling: increment attempt_count
+        # Failure: increment face attempt only. Do not change daily_medication.status.
         occurrence.attempt_count += 1
         occurrence.failure_reason = "FACE_VERIFICATION_FAILED"
-
-        if occurrence.attempt_count >= 3:
-            occurrence = self._handle_escalation(
-                db, current_user, occurrence, reason="FACE_VERIFICATION_FAILED"
-            )
-            msg = face_result.message or "Wajah tidak cocok."
-            return VotFaceVerifyResponse(
-                daily_medication_id=occurrence.id,
-                medicine_schedule_id=occurrence.medicine_schedule_id,
-                face_verification_id=face_result.face_verification_id,
-                verified=False,
-                similarity_score=face_result.similarity_score,
-                threshold=face_result.threshold,
-                status=face_result.status,
-                vot_step=occurrence.vot_step,
-                message=f"{msg} Batas maksimal 3 percobaan tercapai, dialihkan ke Nakes.",
-                attempt_count=occurrence.attempt_count,
-                can_retry=False,
-                failure_reason="FACE_VERIFICATION_FAILED",
-            )
-
+        max_attempt_reached = occurrence.attempt_count >= 3
         occurrence = self.repository.update(db, occurrence)
+
+        msg = face_result.message or "Wajah tidak cocok."
+        if max_attempt_reached:
+            msg = f"{msg} Batas maksimal 3 percobaan tercapai."
+
         return VotFaceVerifyResponse(
             daily_medication_id=occurrence.id,
             medicine_schedule_id=occurrence.medicine_schedule_id,
@@ -379,9 +409,10 @@ class VOTService:
             threshold=face_result.threshold,
             status=face_result.status,
             vot_step=occurrence.vot_step,
-            message=face_result.message,
+            message=msg,
             attempt_count=occurrence.attempt_count,
-            can_retry=True,
+            can_retry=not max_attempt_reached,
+            max_attempt_reached=max_attempt_reached,
             failure_reason="FACE_VERIFICATION_FAILED",
         )
 
@@ -449,6 +480,12 @@ class VOTService:
                 detail="Medicine detection tidak dapat dilakukan pada tahap VOT ini.",
             )
 
+        if occurrence.attempt_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batas maksimal 3 percobaan deteksi obat tercapai. Silakan mulai AI VOT kembali.",
+            )
+
         schedule: MedicineSchedule = occurrence.medicine_schedule
         if schedule is None or schedule.medicine is None:
             raise HTTPException(
@@ -487,35 +524,20 @@ class VOTService:
                 message=detection.get("message") or "",
                 attempt_count=occurrence.attempt_count,
                 can_retry=False,
+                max_attempt_reached=False,
                 failure_reason=None,
             )
 
-        # Failure handling: increment attempt_count
+        # Failure: increment attempt only. Do not change daily_medication.status.
         occurrence.attempt_count += 1
         occurrence.failure_reason = "MEDICINE_DETECTION_FAILED"
-
-        if occurrence.attempt_count >= 3:
-            occurrence = self._handle_escalation(
-                db, current_user, occurrence, reason="MEDICINE_DETECTION_FAILED"
-            )
-            msg = detection.get("message") or "Obat tidak sesuai."
-            return VotMedicineDetectResponse(
-                daily_medication_id=occurrence.id,
-                medicine_schedule_id=occurrence.medicine_schedule_id,
-                expected_medicine=expected_medicine,
-                detected_medicine=detection.get("detected_medicine"),
-                confidence=detection.get("confidence") or 0.0,
-                bounding_box=bounding_box,
-                medicine_match=False,
-                status=occurrence.status,
-                vot_step=occurrence.vot_step,
-                message=f"{msg} Batas maksimal 3 percobaan tercapai, dialihkan ke Nakes.",
-                attempt_count=occurrence.attempt_count,
-                can_retry=False,
-                failure_reason="MEDICINE_DETECTION_FAILED",
-            )
-
+        max_attempt_reached = occurrence.attempt_count >= 3
         occurrence = self.repository.update(db, occurrence)
+
+        msg = detection.get("message") or "Obat tidak sesuai."
+        if max_attempt_reached:
+            msg = f"{msg} Batas maksimal 3 percobaan tercapai."
+
         return VotMedicineDetectResponse(
             daily_medication_id=occurrence.id,
             medicine_schedule_id=occurrence.medicine_schedule_id,
@@ -526,9 +548,10 @@ class VOTService:
             medicine_match=False,
             status=occurrence.status,
             vot_step=occurrence.vot_step,
-            message=detection.get("message") or "",
+            message=msg,
             attempt_count=occurrence.attempt_count,
-            can_retry=True,
+            can_retry=not max_attempt_reached,
+            max_attempt_reached=max_attempt_reached,
             failure_reason="MEDICINE_DETECTION_FAILED",
         )
 

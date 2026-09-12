@@ -49,6 +49,7 @@ class VotSessionResponse(BaseModel):
     vot_step: VotStep
     attempt_count: int = 0
     can_retry: bool = True
+    max_attempt_reached: bool = False
     failure_reason: str | None = None
     max_drinking_stage: str | None = None
 
@@ -77,6 +78,7 @@ class VotFaceVerifyResponse(BaseModel):
     message: str
     attempt_count: int = 0
     can_retry: bool = True
+    max_attempt_reached: bool = False
     failure_reason: str | None = None
 
 
@@ -93,6 +95,7 @@ class VotMedicineDetectResponse(BaseModel):
     message: str
     attempt_count: int = 0
     can_retry: bool = True
+    max_attempt_reached: bool = False
     failure_reason: str | None = None
 
 
