@@ -16,7 +16,7 @@ Backend ini dibangun menggunakan **FastAPI** dan **PostgreSQL** dengan **SQLAlch
 - Uvicorn
 - SQLAlchemy
 - PostgreSQL
-- Alembic
+
 
 ### Authentication & Security
 - JWT Authentication
